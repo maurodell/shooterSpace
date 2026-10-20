@@ -4,9 +4,10 @@ using UnityEngine.Serialization;
 
 namespace NavesShooter.Player
 {
-    // Nave del jugador: siempre se mueve hacia donde apunta (transform.up). En reposo deriva a `idleSpeed`;
-    // mientras se mantiene el avance acelera hasta `thrustSpeed`. Solo puede girar mientras avanza,
-    // con aceleración y desaceleración angular.
+    // Nave del jugador: siempre se mueve hacia donde apunta (transform.up). El joystick (MoveDirection) da una
+    // dirección objetivo: fuera de la zona muerta la nave acelera hasta `thrustSpeed` y rota hacia ese ángulo con
+    // aceleración y desaceleración angular (nunca de golpe: una dirección opuesta se resuelve con una curva).
+    // Dentro de la zona muerta vuelve a `idleSpeed` y sigue recta.
     [RequireComponent(typeof(Rigidbody2D), typeof(PolygonCollider2D))]
     public class ShipController : MonoBehaviour
     {
@@ -24,6 +25,8 @@ namespace NavesShooter.Player
         [SerializeField, Tooltip("Grados por segundo.")] private float maxTurnSpeed = 200f;
         [SerializeField, Tooltip("Grados/s² al aumentar el giro.")] private float angularAcceleration = 900f;
         [SerializeField, Tooltip("Grados/s² al soltar o invertir el giro.")] private float angularDeceleration = 1200f;
+        [SerializeField, Range(0f, 0.9f), Tooltip("Magnitud mínima del joystick para avanzar y girar. Dentro de ella la nave sigue recta.")]
+        private float deadZone = 0.2f;
 
         [Header("Forma")]
         [SerializeField, Tooltip("Vértices locales del contorno y del collider. La punta mira a +Y.")]
@@ -39,6 +42,8 @@ namespace NavesShooter.Player
         [Header("Banking")]
         [SerializeField, Range(0f, 0.5f), Tooltip("Cuánto se angosta la nave en X al girar a velocidad máxima.")]
         private float bankAmount = 0.25f;
+
+        private const float ReverseHysteresis = 20f; // grados
 
         private Rigidbody2D body;
         private float angularSpeed; // grados/s, positivo = antihorario
@@ -62,16 +67,15 @@ namespace NavesShooter.Player
 
         private void FixedUpdate()
         {
-            bool thrust = input != null && input.Thrust;
-            // Sin avance no hay giro: el objetivo angular vuelve a 0 y la desaceleración lo frena suave.
-            float turn = thrust ? input.Turn : 0f;
+            Vector2 direction = input != null ? input.MoveDirection : Vector2.zero;
+            // Dentro de la zona muerta no hay avance ni giro: el objetivo angular vuelve a 0 y la desaceleración lo frena suave.
+            bool thrust = direction.sqrMagnitude > deadZone * deadZone;
 
             float targetLinear = thrust ? thrustSpeed : idleSpeed;
             float linearRate = targetLinear > speed ? linearAcceleration : linearDeceleration;
             speed = Mathf.MoveTowards(speed, targetLinear, linearRate * Time.fixedDeltaTime);
 
-            // Derecha (+1) = sentido horario = rotación negativa en 2D.
-            float targetSpeed = -turn * maxTurnSpeed;
+            float targetSpeed = thrust ? TurnSpeedTowards(direction) : 0f;
 
             bool speedingUp = angularSpeed * targetSpeed >= 0f && Mathf.Abs(targetSpeed) > Mathf.Abs(angularSpeed);
             float rate = speedingUp ? angularAcceleration : angularDeceleration;
@@ -80,6 +84,23 @@ namespace NavesShooter.Player
             body.angularVelocity = angularSpeed;
             float radians = body.rotation * Mathf.Deg2Rad;
             body.linearVelocity = new Vector2(-Mathf.Sin(radians), Mathf.Cos(radians)) * speed;
+        }
+
+        // Velocidad angular deseada para llegar al ángulo de `direction`: la máxima que todavía permite frenar justo en
+        // el objetivo con `angularDeceleration` (v² = 2·a·d), sin superar `maxTurnSpeed` ni pasarse en un solo paso.
+        private float TurnSpeedTowards(Vector2 direction)
+        {
+            // Rotación 0 = +Y, positiva = antihoraria (convención de Rigidbody2D.rotation).
+            float targetAngle = Mathf.Atan2(-direction.x, direction.y) * Mathf.Rad2Deg;
+            float delta = Mathf.DeltaAngle(body.rotation, targetAngle);
+
+            // Con el objetivo casi opuesto, mantener el sentido de giro en curso para no cambiar de lado si el stick tiembla.
+            if (Mathf.Abs(delta) > 180f - ReverseHysteresis && angularSpeed * delta < 0f)
+                delta += 360f * Mathf.Sign(angularSpeed);
+
+            float distance = Mathf.Abs(delta);
+            float turnSpeed = Mathf.Min(maxTurnSpeed, Mathf.Sqrt(2f * angularDeceleration * distance), distance / Time.fixedDeltaTime);
+            return Mathf.Sign(delta) * turnSpeed;
         }
 
         private void Update()
