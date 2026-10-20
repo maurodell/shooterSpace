@@ -19,7 +19,7 @@ namespace NavesShooter.Player
         [Header("Movimiento")]
         [SerializeField, Tooltip("Velocidad en reposo, sin avance (unidades/s).")] private float idleSpeed = 0.6f;
         [SerializeField, FormerlySerializedAs("forwardSpeed"), Tooltip("Velocidad con el avance apretado (unidades/s).")]
-        private float thrustSpeed = 5f;
+        private float thrustSpeed = 4f;
         [SerializeField, Tooltip("Unidades/s² al acelerar con el avance.")] private float linearAcceleration = 6f;
         [SerializeField, Tooltip("Unidades/s² al soltar el avance y volver a la velocidad de reposo.")] private float linearDeceleration = 3f;
         [SerializeField, Tooltip("Grados por segundo.")] private float maxTurnSpeed = 200f;
