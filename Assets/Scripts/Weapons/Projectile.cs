@@ -5,7 +5,7 @@ namespace NavesShooter.Weapons
 {
     // Proyectil con contorno neón. Rigidbody2D kinematic movido por velocidad y collider trigger: no empuja nada, solo
     // detecta. Vuelve a su pool al cumplir el tiempo de vida o al tocar cualquier collider (la matriz de colisiones
-    // de layers decide con qué puede chocar).
+    // de layers decide con qué puede chocar); si lo tocado es `IDamageable`, antes le avisa del impacto.
     [RequireComponent(typeof(Rigidbody2D), typeof(PolygonCollider2D), typeof(LineRenderer))]
     public class Projectile : MonoBehaviour
     {
@@ -61,6 +61,9 @@ namespace NavesShooter.Weapons
 
         private void OnTriggerEnter2D(Collider2D other)
         {
+            // Si tocó dos colliders en el mismo paso, el primero ya lo devolvió al pool: no golpea dos veces.
+            if (!gameObject.activeSelf) return;
+            if (other.TryGetComponent(out IDamageable target)) target.TakeHit();
             Despawn();
         }
 
