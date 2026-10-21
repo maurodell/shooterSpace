@@ -9,8 +9,6 @@ namespace NavesShooter.Input
     {
         [SerializeField, Tooltip("Asset con el action map \"Gameplay\" (acciones Move y Fire).")]
         private InputActionAsset actions;
-        [SerializeField, Tooltip("TEMPORAL: loguea los cambios de IsFiring para verificar el botón de disparo.")]
-        private bool logFiring = true;
 
         public Vector2 MoveDirection { get; private set; }
         public bool IsFiring { get; private set; }
@@ -48,10 +46,7 @@ namespace NavesShooter.Input
         private void Update()
         {
             MoveDirection = Vector2.ClampMagnitude(move.ReadValue<Vector2>(), 1f);
-
-            bool firing = fire.IsPressed();
-            if (logFiring && firing != IsFiring) Debug.Log($"IsFiring = {firing}");
-            IsFiring = firing;
+            IsFiring = fire.IsPressed();
         }
     }
 }
