@@ -30,6 +30,8 @@ namespace NavesShooter.Core
         [SerializeField, Tooltip("Adelanta el destino del suavizado según la velocidad con que se corre la zona, para que a velocidad " +
             "constante el objetivo quede en el borde de la zona y no ≈ velocidad × smoothTime más afuera.")]
         private bool compensateLag = true;
+        [SerializeField, Tooltip("Al reiniciar la partida, la cámara salta a centrar el objetivo en vez de viajar suavizada.")]
+        private GameManager gameManager;
 
         private Camera cam;
         private Vector3 velocity;
@@ -37,6 +39,7 @@ namespace NavesShooter.Core
         // desde ella; así, con el objetivo adentro, la cámara se asienta sin rebotes.
         private Vector2 goal;
         private Vector2 goalVelocity;
+        private bool snapPending;
 
         // Zonas relativas al centro de la cámara, en unidades de mundo.
         private Rect deadZoneRect;
@@ -62,6 +65,19 @@ namespace NavesShooter.Core
             transform.position = new Vector3(goal.x, goal.y, transform.position.z);
         }
 
+        private void OnEnable()
+        {
+            if (gameManager != null) gameManager.Restarted += RequestSnap;
+        }
+
+        private void OnDisable()
+        {
+            if (gameManager != null) gameManager.Restarted -= RequestSnap;
+        }
+
+        // El salto se hace en LateUpdate, cuando el objetivo ya está en su lugar nuevo.
+        private void RequestSnap() => snapPending = true;
+
         private void OnValidate()
         {
             appliedScreenSize = default; // márgenes editados en Play: recalcular las zonas
@@ -73,6 +89,16 @@ namespace NavesShooter.Core
             UpdateZonesIfNeeded();
 
             Vector2 targetPosition = target.position;
+            if (snapPending)
+            {
+                snapPending = false;
+                goal = targetPosition;
+                goalVelocity = Vector2.zero;
+                velocity = Vector3.zero;
+                transform.position = new Vector3(goal.x, goal.y, transform.position.z);
+                return;
+            }
+
             Vector2 previousGoal = goal;
             goal = GoalFor(targetPosition);
             goalVelocity = Time.deltaTime > 0f ? (goal - previousGoal) / Time.deltaTime : Vector2.zero;

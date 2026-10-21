@@ -79,7 +79,12 @@ namespace NavesShooter.Asteroids
 
         public void Explode(Vector2 position, Vector2 velocity, AsteroidSize size)
         {
-            BurstSettings burst = Settings(size);
+            Explode(position, velocity, Settings(size), colorA, colorB);
+        }
+
+        // Explosión con ráfaga y colores propios (p. ej. la nave del jugador, en cian), sobre el mismo sistema.
+        public void Explode(Vector2 position, Vector2 velocity, BurstSettings burst, Color colorA, Color colorB)
+        {
             Vector2 inherited = velocity * inheritVelocity;
             var emit = new ParticleSystem.EmitParams { applyShapeToPosition = false };
 

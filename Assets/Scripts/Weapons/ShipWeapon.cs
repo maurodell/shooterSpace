@@ -13,6 +13,8 @@ namespace NavesShooter.Weapons
         [Header("Referencias")]
         [SerializeField] private PlayerInputReader input;
         [SerializeField] private Projectile projectilePrefab;
+        [SerializeField, Tooltip("Al reiniciar la partida, los proyectiles en vuelo vuelven al pool.")]
+        private GameManager gameManager;
 
         [Header("Disparo")]
         [SerializeField, Min(0.1f), Tooltip("Disparos por segundo.")] private float fireRate = 8f;
@@ -47,6 +49,19 @@ namespace NavesShooter.Weapons
 
             // Contenedor en la raíz: si colgara de la nave, los proyectiles se moverían con ella.
             pool = new ObjectPool<Projectile>(projectilePrefab, initialPoolSize, new GameObject("PlayerProjectiles").transform);
+            // Desde Awake y no desde OnEnable: la nave está inactiva cuando llega el reinicio.
+            if (gameManager != null) gameManager.Restarted += OnRestarted;
+        }
+
+        private void OnDestroy()
+        {
+            if (gameManager != null) gameManager.Restarted -= OnRestarted;
+        }
+
+        private void OnRestarted()
+        {
+            pool.ReleaseAll();
+            cooldown = 0f;
         }
 
         private void Update()

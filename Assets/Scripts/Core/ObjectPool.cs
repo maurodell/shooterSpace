@@ -18,6 +18,7 @@ namespace NavesShooter.Core
         private readonly T prefab;
         private readonly Transform container;
         private readonly Stack<T> inactive;
+        private readonly List<T> all;
 
         public int CountAll { get; private set; }
         public int CountInactive => inactive.Count;
@@ -29,6 +30,7 @@ namespace NavesShooter.Core
             this.prefab = prefab;
             this.container = container != null ? container : new GameObject($"Pool ({prefab.name})").transform;
             inactive = new Stack<T>(Mathf.Max(initialSize, 1));
+            all = new List<T>(Mathf.Max(initialSize, 1));
 
             for (int i = 0; i < initialSize; i++) inactive.Push(Create());
         }
@@ -52,6 +54,12 @@ namespace NavesShooter.Core
             inactive.Push(item);
         }
 
+        // Devuelve al pool todas las instancias activas (p. ej. al reiniciar la partida).
+        public void ReleaseAll()
+        {
+            foreach (T item in all) Release(item);
+        }
+
         // Devuelve la instancia inactiva. Su Awake corre acá, una sola vez.
         private T Create()
         {
@@ -59,6 +67,7 @@ namespace NavesShooter.Core
             item.gameObject.SetActive(false);
             item.name = $"{prefab.name} {CountAll}";
             CountAll++;
+            all.Add(item);
             return item;
         }
     }

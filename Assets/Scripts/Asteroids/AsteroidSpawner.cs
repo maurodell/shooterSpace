@@ -17,6 +17,8 @@ namespace NavesShooter.Asteroids
         private Camera targetCamera;
         [SerializeField, Tooltip("Hacia dónde apuntan los asteroides dirigidos. Sin jugador, todos salen al azar.")]
         private Transform player;
+        [SerializeField, Tooltip("Al reiniciar la partida, todos los asteroides vuelven al pool.")]
+        private GameManager gameManager;
 
         [Header("Cantidad")]
         [SerializeField, Min(0), Tooltip("Asteroides activos que se mantienen alrededor de la cámara.")]
@@ -58,6 +60,7 @@ namespace NavesShooter.Asteroids
         private readonly List<Asteroid> active = new List<Asteroid>();
         private ObjectPool<Asteroid> pool;
         private int blockingMask;
+        private int resumeFrame;
 
         public int ActiveCount => active.Count;
 
@@ -75,12 +78,31 @@ namespace NavesShooter.Asteroids
             pool = new ObjectPool<Asteroid>(asteroidPrefab, targetCount + poolReserve, new GameObject("Asteroids").transform);
         }
 
-        private void OnEnable() => Asteroid.Destroyed += SpawnFragments;
+        private void OnEnable()
+        {
+            Asteroid.Destroyed += SpawnFragments;
+            if (gameManager != null) gameManager.Restarted += DespawnAll;
+        }
 
-        private void OnDisable() => Asteroid.Destroyed -= SpawnFragments;
+        private void OnDisable()
+        {
+            Asteroid.Destroyed -= SpawnFragments;
+            if (gameManager != null) gameManager.Restarted -= DespawnAll;
+        }
+
+        // Devuelve todo al pool sin emitir `Destroyed`. No repone hasta el frame siguiente: para entonces la cámara ya
+        // saltó a la nave reaparecida y el anillo de spawn queda fuera de la vista nueva, no de la vieja.
+        private void DespawnAll()
+        {
+            pool.ReleaseAll();
+            active.Clear();
+            resumeFrame = Time.frameCount + 1;
+        }
 
         private void Update()
         {
+            if (Time.frameCount < resumeFrame) return;
+
             Vector2 center = targetCamera.transform.position;
             float despawn = EffectiveDespawnDistance(targetCamera);
             float despawnSqr = despawn * despawn;

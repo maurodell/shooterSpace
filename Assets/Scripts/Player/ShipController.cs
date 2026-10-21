@@ -65,6 +65,13 @@ namespace NavesShooter.Player
             ApplyShape();
         }
 
+        // Al reaparecer (ShipLife reactiva la nave) arranca quieta, sin el giro ni la velocidad con que murió.
+        private void OnEnable()
+        {
+            speed = idleSpeed;
+            angularSpeed = 0f;
+        }
+
         private void FixedUpdate()
         {
             Vector2 direction = input != null ? input.MoveDirection : Vector2.zero;
