@@ -5,7 +5,14 @@ namespace NavesShooter.Core
     // Vibración del dispositivo. En el Editor y en plataformas sin vibración no hace nada.
     public static class Haptics
     {
-        // En Android vibra `milliseconds`; en iOS la duración la fija el sistema (Handheld.Vibrate, ~0.4 s).
+#if UNITY_IOS && !UNITY_EDITOR
+        // Plugins/iOS/NavesHaptics.mm
+        [System.Runtime.InteropServices.DllImport("__Internal")]
+        private static extern void NavesHaptics_ImpactHeavy();
+#endif
+
+        // En Android vibra `milliseconds`; en iOS es un golpe corto del Taptic Engine (UIImpactFeedbackGenerator,
+        // estilo Heavy), de duración fija.
         public static void Vibrate(long milliseconds)
         {
 #if UNITY_ANDROID && !UNITY_EDITOR
@@ -38,7 +45,7 @@ namespace NavesShooter.Core
                 Handheld.Vibrate();
             }
 #elif UNITY_IOS && !UNITY_EDITOR
-            Handheld.Vibrate();
+            NavesHaptics_ImpactHeavy();
 #endif
         }
     }

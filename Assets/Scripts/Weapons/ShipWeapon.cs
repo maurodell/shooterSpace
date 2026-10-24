@@ -66,6 +66,8 @@ namespace NavesShooter.Weapons
 
         private void Update()
         {
+            // En pausa (timeScale 0) el cooldown no baja, pero el primer disparo saldría igual.
+            if (gameManager != null && gameManager.State == GameState.Paused) return;
             if (cooldown > 0f) cooldown -= Time.deltaTime;
 
             bool firing = autoFire || (input != null && input.IsFiring);

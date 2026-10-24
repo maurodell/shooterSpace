@@ -19,7 +19,7 @@ namespace NavesShooter.Player
 
         [Header("Muerte")]
         [SerializeField, Tooltip("Layers que matan a la nave al tocarla.")] private LayerMask hazardLayers;
-        [SerializeField, Min(0), Tooltip("Duración de la vibración al morir, en milisegundos (solo Android; iOS usa la del sistema).")]
+        [SerializeField, Min(0), Tooltip("Duración de la vibración al morir, en milisegundos (solo Android; en iOS es un golpe háptico de duración fija).")]
         private int vibrationMilliseconds = 80;
         [SerializeField] private ExplosionEffect.BurstSettings burst = new ExplosionEffect.BurstSettings
         {
