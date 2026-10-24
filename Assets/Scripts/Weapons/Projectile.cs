@@ -6,8 +6,9 @@ namespace NavesShooter.Weapons
 {
     // Proyectil con contorno neón. Rigidbody2D kinematic movido por velocidad y collider trigger: no empuja nada, solo
     // detecta. Vuelve a su pool al cumplir el tiempo de vida o al tocar cualquier collider (la matriz de colisiones
-    // de layers decide con qué puede chocar); si lo tocado es `IDamageable`, antes le avisa del impacto. Si no lo es
-    // (cometas grandes, casco de la nave nodriza), avisa por `Blocked` para el destello.
+    // de layers decide con qué puede chocar); si lo tocado es `IDamageable` y está en `damageLayers`, antes le avisa
+    // del impacto. Si no (cometas grandes, casco de la nave nodriza; para el proyectil enemigo, también los cometas
+    // chicos), avisa por `Blocked` para el destello. Lo usan el jugador (Projectile.prefab) y los enemigos (EnemyProjectile.prefab).
     [RequireComponent(typeof(Rigidbody2D), typeof(PolygonCollider2D), typeof(LineRenderer))]
     public class Projectile : MonoBehaviour
     {
@@ -22,6 +23,10 @@ namespace NavesShooter.Weapons
         };
         [SerializeField] private float lineWidth = 0.04f;
         [SerializeField] private Color neonColor = new Color(1f, 0.9f, 0.15f);
+
+        [Header("Impacto")]
+        [SerializeField, Tooltip("Layers a las que daña. Lo demás que toca solo lo frena (destello).")]
+        private LayerMask damageLayers = ~0;
 
         // Impacto contra algo indestructible: punto aproximado del impacto y velocidad del proyectil.
         public static event Action<Vector2, Vector2> Blocked;
@@ -68,7 +73,8 @@ namespace NavesShooter.Weapons
         {
             // Si tocó dos colliders en el mismo paso, el primero ya lo devolvió al pool: no golpea dos veces.
             if (!gameObject.activeSelf) return;
-            if (other.TryGetComponent(out IDamageable target)) target.TakeHit();
+            bool damages = (damageLayers.value & (1 << other.gameObject.layer)) != 0;
+            if (damages && other.TryGetComponent(out IDamageable target)) target.TakeHit();
             else Blocked?.Invoke(body.position - body.linearVelocity * (0.5f * Time.fixedDeltaTime), body.linearVelocity);
             Despawn();
         }

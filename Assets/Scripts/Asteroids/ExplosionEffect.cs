@@ -1,4 +1,5 @@
 using System;
+using NavesShooter.Enemies;
 using NavesShooter.Weapons;
 using UnityEngine;
 using UnityEngine.Serialization;
@@ -10,7 +11,8 @@ namespace NavesShooter.Asteroids
     // rápido. Cada chispa es un quad estirado según su velocidad (stretched billboard): a toda velocidad se ve como una
     // línea y, frenada, como un cuadradito. Un solo ParticleSystem para todas las explosiones: cada una emite con `Emit`
     // sobre el mismo sistema, así no hay instancias que crear ni pool que mantener, y todas se dibujan juntas.
-    // También dibuja el destello de los proyectiles que pegan contra algo indestructible (Projectile.Blocked).
+    // También dibuja la explosión de las naves enemigas (EnemyShip.Destroyed, en rojo) y el destello de los proyectiles
+    // que pegan contra algo indestructible (Projectile.Blocked).
     // El sistema se configura entero por código en Awake; lo que se edite en sus módulos desde el Inspector se pisa.
     [RequireComponent(typeof(ParticleSystem))]
     public class ExplosionEffect : MonoBehaviour
@@ -30,6 +32,14 @@ namespace NavesShooter.Asteroids
         {
             count = 10, spread = 0.2f, speedRange = new Vector2(1.5f, 4.5f), sizeRange = new Vector2(0.03f, 0.05f), lifetimeRange = new Vector2(0.25f, 0.45f),
         };
+
+        [Header("Nave enemiga")]
+        [SerializeField] private BurstSettings enemy = new BurstSettings
+        {
+            count = 28, spread = 0.3f, speedRange = new Vector2(2f, 7f), sizeRange = new Vector2(0.04f, 0.08f), lifetimeRange = new Vector2(0.35f, 0.75f),
+        };
+        [SerializeField] private Color enemyColorA = new Color(1f, 0.2f, 0.08f);
+        [SerializeField] private Color enemyColorB = new Color(1f, 0.75f, 0.3f);
 
         [Header("Destello de impacto (proyectil contra algo indestructible)")]
         [SerializeField] private BurstSettings impact = new BurstSettings
@@ -76,18 +86,25 @@ namespace NavesShooter.Asteroids
         private void OnEnable()
         {
             Asteroid.Destroyed += OnAsteroidDestroyed;
+            EnemyShip.Destroyed += OnEnemyDestroyed;
             Projectile.Blocked += OnProjectileBlocked;
         }
 
         private void OnDisable()
         {
             Asteroid.Destroyed -= OnAsteroidDestroyed;
+            EnemyShip.Destroyed -= OnEnemyDestroyed;
             Projectile.Blocked -= OnProjectileBlocked;
         }
 
         private void OnAsteroidDestroyed(AsteroidDestroyed destroyed)
         {
             Explode(destroyed.Position, destroyed.Velocity, asteroid, colorA, colorB);
+        }
+
+        private void OnEnemyDestroyed(EnemyDestroyed destroyed)
+        {
+            Explode(destroyed.Position, destroyed.Velocity, enemy, enemyColorA, enemyColorB);
         }
 
         private void OnProjectileBlocked(Vector2 position, Vector2 velocity)

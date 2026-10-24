@@ -40,7 +40,7 @@ namespace NavesShooter.UI
         [SerializeField] private ContactStyle[] styles =
         {
             new ContactStyle { type = RadarContactType.Target, shape = NeonShapeGraphic.Shape.Diamond, size = 36f },
-            new ContactStyle { type = RadarContactType.Enemy, shape = NeonShapeGraphic.Shape.Triangle, size = 26f },
+            new ContactStyle { type = RadarContactType.Enemy, shape = NeonShapeGraphic.Shape.Circle, size = 18f },
             new ContactStyle { type = RadarContactType.Obstacle, shape = NeonShapeGraphic.Shape.Circle, size = 22f },
         };
 

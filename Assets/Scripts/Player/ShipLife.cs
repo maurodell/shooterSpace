@@ -4,11 +4,15 @@ using UnityEngine;
 
 namespace NavesShooter.Player
 {
-    // Vida de la nave: un solo golpe. Al chocar con algo de `hazardLayers` explota (chispas cian), vibra, se desactiva
-    // y termina la partida. Al reiniciar reaparece en `spawnPoint` con `invulnerability` segundos sin poder morir,
-    // parpadeando; mientras tanto su collider ignora esas layers y atraviesa los asteroides sin empujarlos.
+    // Vida de la nave sobre Health (3 puntos). Chocar con algo de `hazardLayers` quita un punto: si lo tocado es
+    // dañable (cometa chico, enemigo) también le pega; la nave sale empujada en dirección opuesta (contra un cometa
+    // grande, hacia afuera). Cada daño hace vibrar y parpadear la nave durante la invulnerabilidad de Health; los
+    // disparos enemigos llegan directo a Health (IDamageable). Sin vida explota (chispas cian), vibra más largo, se
+    // desactiva y termina la partida. Al reiniciar reaparece en `spawnPoint` con vida completa e `invulnerability`
+    // segundos sin recibir daño, parpadeando; mientras tanto su collider ignora `hazardLayers` y atraviesa los
+    // asteroides sin empujarlos (en la invulnerabilidad tras un golpe, en cambio, sigue chocando).
     // Los eventos del GameManager se escuchan desde Awake y no desde OnEnable: la nave está inactiva cuando llega el reinicio.
-    [RequireComponent(typeof(Rigidbody2D), typeof(Collider2D))]
+    [RequireComponent(typeof(Rigidbody2D), typeof(Collider2D), typeof(Health))]
     public class ShipLife : MonoBehaviour
     {
         [Header("Referencias")]
@@ -17,8 +21,14 @@ namespace NavesShooter.Player
         [SerializeField, Tooltip("Renderer que parpadea durante la invulnerabilidad (el contorno del hijo Visual).")]
         private Renderer visual;
 
+        [Header("Daño")]
+        [SerializeField, Tooltip("Layers que quitan vida al tocarlas.")] private LayerMask hazardLayers;
+        [SerializeField, Min(0f), Tooltip("Velocidad con que el choque empuja la nave lejos de lo que tocó (unidades/s).")]
+        private float knockbackSpeed = 6f;
+        [SerializeField, Min(0), Tooltip("Duración de la vibración al recibir daño, en milisegundos (solo Android).")]
+        private int hitVibrationMilliseconds = 35;
+
         [Header("Muerte")]
-        [SerializeField, Tooltip("Layers que matan a la nave al tocarla.")] private LayerMask hazardLayers;
         [SerializeField, Min(0), Tooltip("Duración de la vibración al morir, en milisegundos (solo Android; en iOS es un golpe háptico de duración fija).")]
         private int vibrationMilliseconds = 80;
         [SerializeField] private ExplosionEffect.BurstSettings burst = new ExplosionEffect.BurstSettings
@@ -31,42 +41,50 @@ namespace NavesShooter.Player
         [Header("Reaparición")]
         [SerializeField, Tooltip("Lo fija el LevelManager al empezar (punto A).")] private Vector2 spawnPoint = Vector2.zero;
         [SerializeField, Tooltip("Rotación al reaparecer, en grados (convención de Rigidbody2D.rotation).")] private float spawnRotation;
-        [SerializeField, Min(0f), Tooltip("Segundos sin poder morir después de reaparecer.")] private float invulnerability = 2f;
+        [SerializeField, Min(0f), Tooltip("Segundos sin recibir daño después de reaparecer.")] private float invulnerability = 2f;
         [SerializeField, Min(0.1f), Tooltip("Parpadeos por segundo durante la invulnerabilidad.")] private float blinkRate = 8f;
 
         private Rigidbody2D body;
         private Collider2D shipCollider;
+        private Health health;
+        private ShipController controller;
         private LayerMask defaultExcludeLayers;
-        private float invulnerableTime;
+        private float ghostTime;
         private bool pendingFirstStep;
 
-        public bool IsInvulnerable => invulnerableTime > 0f;
+        public Health Health => health;
+        public bool IsInvulnerable => health.IsInvulnerable;
 
         private void Awake()
         {
             body = GetComponent<Rigidbody2D>();
             shipCollider = GetComponent<Collider2D>();
+            health = GetComponent<Health>();
+            controller = GetComponent<ShipController>();
             defaultExcludeLayers = shipCollider.excludeLayers;
+            health.Damaged += OnDamaged;
+            health.Died += OnDied;
             if (gameManager != null) gameManager.Restarted += Respawn;
         }
 
         private void OnDestroy()
         {
+            health.Damaged -= OnDamaged;
+            health.Died -= OnDied;
             if (gameManager != null) gameManager.Restarted -= Respawn;
         }
 
         private void Update()
         {
-            if (invulnerableTime <= 0f) return;
-
-            invulnerableTime -= Time.deltaTime;
-            if (invulnerableTime <= 0f)
+            if (ghostTime > 0f)
             {
-                SetInvulnerable(false);
-                return;
+                ghostTime -= Time.deltaTime;
+                if (ghostTime <= 0f) SetGhost(false);
             }
 
-            if (visual != null) visual.enabled = Mathf.Repeat(invulnerableTime * blinkRate, 1f) >= 0.5f;
+            if (visual == null) return;
+            bool shown = !health.IsInvulnerable || Mathf.Repeat(Time.time * blinkRate, 1f) >= 0.5f;
+            if (visual.enabled != shown) visual.enabled = shown;
         }
 
         private void FixedUpdate()
@@ -78,10 +96,24 @@ namespace NavesShooter.Player
 
         private void OnCollisionEnter2D(Collision2D collision)
         {
-            if (IsInvulnerable || !gameObject.activeSelf) return;
+            if (!gameObject.activeSelf || health.IsDead || health.IsInvulnerable) return;
             if ((hazardLayers.value & (1 << collision.gameObject.layer)) == 0) return;
-            Die();
+
+            // Desde el centro de lo tocado: contra un cometa grande, hacia afuera.
+            Vector2 away = body.position - (Vector2)collision.collider.bounds.center;
+            if (away.sqrMagnitude < 0.0001f) away = -(Vector2)transform.up;
+
+            if (collision.collider.TryGetComponent(out IDamageable other)) other.TakeHit();
+            if (!health.TakeDamage(1) || health.IsDead) return;
+            if (controller != null) controller.Knockback(away.normalized * knockbackSpeed);
         }
+
+        private void OnDamaged(Health _)
+        {
+            if (!health.IsDead) Haptics.Vibrate(hitVibrationMilliseconds);
+        }
+
+        private void OnDied(Health _) => Die();
 
         private void Die()
         {
@@ -121,14 +153,16 @@ namespace NavesShooter.Player
             body.linearVelocity = Vector2.zero;
             body.angularVelocity = 0f;
 
-            SetInvulnerable(invulnerability > 0f);
+            health.Restore();
+            health.SetInvulnerable(invulnerability);
+            ghostTime = invulnerability;
+            SetGhost(invulnerability > 0f);
         }
 
-        private void SetInvulnerable(bool value)
+        // Atraviesa lo peligroso sin empujarlo. Al terminar, si quedó superpuesta a algo, el contacto nuevo la daña.
+        private void SetGhost(bool value)
         {
-            invulnerableTime = value ? invulnerability : 0f;
             shipCollider.excludeLayers = value ? defaultExcludeLayers | hazardLayers : defaultExcludeLayers;
-            if (visual != null) visual.enabled = true;
         }
     }
 }

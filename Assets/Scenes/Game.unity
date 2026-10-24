@@ -529,8 +529,8 @@ MonoBehaviour:
     shape: 2
     size: 36
   - type: 1
-    shape: 1
-    size: 26
+    shape: 0
+    size: 18
   - type: 2
     shape: 0
     size: 22
@@ -550,6 +550,7 @@ GameObject:
   - component: {fileID: 422487595}
   - component: {fileID: 422487599}
   - component: {fileID: 422487600}
+  - component: {fileID: 422487601}
   m_Layer: 8
   m_Name: PlayerShip
   m_TagString: Untagged
@@ -579,6 +580,7 @@ MonoBehaviour:
   angularAcceleration: 900
   angularDeceleration: 1200
   deadZone: 0.2
+  knockbackDecay: 10
   shape:
   - {x: 0, y: 0.45}
   - {x: 0.32, y: -0.35}
@@ -717,7 +719,9 @@ MonoBehaviour:
   visual: {fileID: 880905762}
   hazardLayers:
     serializedVersion: 2
-    m_Bits: 1024
+    m_Bits: 5120
+  knockbackSpeed: 6
+  hitVibrationMilliseconds: 35
   vibrationMilliseconds: 80
   burst:
     count: 40
@@ -731,6 +735,20 @@ MonoBehaviour:
   spawnRotation: 0
   invulnerability: 2
   blinkRate: 8
+--- !u!114 &422487601
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 422487594}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 4deb2ecde6ed96c48a3f47e6f2703eaa, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::NavesShooter.Core.Health
+  maxHealth: 3
+  invulnerabilityOnHit: 1
 --- !u!1 &451469974
 GameObject:
   m_ObjectHideFlags: 0
@@ -859,6 +877,90 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 661d6a07d4f19d745b6644b1947581f4, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::NavesShooter.UI.SafeAreaFitter
+--- !u!1 &582395114
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 582395115}
+  - component: {fileID: 582395117}
+  - component: {fileID: 582395116}
+  m_Layer: 5
+  m_Name: Lives
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!224 &582395115
+RectTransform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 582395114}
+  m_LocalRotation: {x: -0, y: -0, z: -0, w: 1}
+  m_LocalPosition: {x: 0, y: 0, z: 0}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children:
+  - {fileID: 1554993278}
+  - {fileID: 1836564548}
+  - {fileID: 1529956530}
+  m_Father: {fileID: 660443170}
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+  m_AnchorMin: {x: 0, y: 1}
+  m_AnchorMax: {x: 0, y: 1}
+  m_AnchoredPosition: {x: 30, y: -62}
+  m_SizeDelta: {x: 192, y: 56}
+  m_Pivot: {x: 0, y: 1}
+--- !u!114 &582395116
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 582395114}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: d21247d853412c84687f01ca0fecaf67, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::NavesShooter.UI.HealthDisplay
+  health: {fileID: 422487601}
+  icons:
+  - {fileID: 1554993279}
+  - {fileID: 1836564549}
+  - {fileID: 1529956531}
+  lostAlpha: 0.15
+--- !u!114 &582395117
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 582395114}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 30649d3a9faa99c48a7b1166b86bf2a0, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: UnityEngine.UI::UnityEngine.UI.HorizontalLayoutGroup
+  m_Padding:
+    m_Left: 0
+    m_Right: 0
+    m_Top: 0
+    m_Bottom: 0
+  m_ChildAlignment: 3
+  m_Spacing: 12
+  m_ChildForceExpandWidth: 0
+  m_ChildForceExpandHeight: 0
+  m_ChildControlWidth: 0
+  m_ChildControlHeight: 0
+  m_ChildScaleWidth: 0
+  m_ChildScaleHeight: 0
+  m_ReverseArrangement: 0
 --- !u!1 &649260332
 GameObject:
   m_ObjectHideFlags: 0
@@ -896,6 +998,14 @@ MonoBehaviour:
     speedRange: {x: 1.5, y: 4.5}
     sizeRange: {x: 0.03, y: 0.05}
     lifetimeRange: {x: 0.25, y: 0.45}
+  enemy:
+    count: 28
+    spread: 0.3
+    speedRange: {x: 2, y: 7}
+    sizeRange: {x: 0.04, y: 0.08}
+    lifetimeRange: {x: 0.35, y: 0.75}
+  enemyColorA: {r: 1, g: 0.2, b: 0.08, a: 1}
+  enemyColorB: {r: 1, g: 0.75, b: 0.3, a: 1}
   impact:
     count: 6
     spread: 0.05
@@ -3226,6 +3336,7 @@ RectTransform:
   - {fileID: 89902086}
   - {fileID: 375596399}
   - {fileID: 1123282620}
+  - {fileID: 582395115}
   m_Father: {fileID: 689705804}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
   m_AnchorMin: {x: 0, y: 0}
@@ -4438,6 +4549,69 @@ CanvasRenderer:
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 1123282619}
   m_CullTransparentMesh: 1
+--- !u!1 &1143429130
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 1143429132}
+  - component: {fileID: 1143429131}
+  m_Layer: 0
+  m_Name: EnemySpawner
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!114 &1143429131
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1143429130}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 6ffb024e47ba5ac419dfeb388b1c5262, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::NavesShooter.Enemies.EnemySpawner
+  enemyPrefab: {fileID: 8839102294615044940, guid: e9f3580ec5914b841b0899283189d729, type: 3}
+  projectilePrefab: {fileID: 1958287052753098305, guid: 6cebe0fa18beb3348aaefe6f7c2e435e, type: 3}
+  targetCamera: {fileID: 661843592}
+  player: {fileID: 422487598}
+  levelManager: {fileID: 1690848701}
+  gameManager: {fileID: 1447734612}
+  maxEnemies: 3
+  spawnInterval: 6
+  initialDelay: 4
+  spawnRadius: 12.5
+  spawnRingWidth: 3
+  despawnDistance: 30
+  forwardChance: 0.8
+  forwardSpread: 60
+  spawnClearance: 1.5
+  blockingLayers:
+    serializedVersion: 2
+    m_Bits: 7168
+  projectilePoolSize: 24
+--- !u!4 &1143429132
+Transform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1143429130}
+  serializedVersion: 2
+  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
+  m_LocalPosition: {x: 0, y: 0, z: 0}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children: []
+  m_Father: {fileID: 0}
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
 --- !u!1 &1216566304
 GameObject:
   m_ObjectHideFlags: 0
@@ -5027,6 +5201,146 @@ CanvasRenderer:
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 1524581009}
   m_CullTransparentMesh: 1
+--- !u!1 &1529956529
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 1529956530}
+  - component: {fileID: 1529956532}
+  - component: {fileID: 1529956531}
+  m_Layer: 5
+  m_Name: Life_2
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!224 &1529956530
+RectTransform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1529956529}
+  m_LocalRotation: {x: -0, y: -0, z: -0, w: 1}
+  m_LocalPosition: {x: 0, y: 0, z: 0}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children: []
+  m_Father: {fileID: 582395115}
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+  m_AnchorMin: {x: 0, y: 0}
+  m_AnchorMax: {x: 0, y: 0}
+  m_AnchoredPosition: {x: 0, y: 0}
+  m_SizeDelta: {x: 56, y: 56}
+  m_Pivot: {x: 0.5, y: 0.5}
+--- !u!114 &1529956531
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1529956529}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: c815c76b73ef6544691868b9bb01062e, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::NavesShooter.UI.NeonShapeGraphic
+  m_Material: {fileID: 0}
+  m_Color: {r: 0.2, g: 1, b: 1, a: 1}
+  m_RaycastTarget: 0
+  m_RaycastPadding: {x: 0, y: 0, z: 0, w: 0}
+  m_Maskable: 1
+  m_OnCullStateChanged:
+    m_PersistentCalls:
+      m_Calls: []
+  shape: 2
+  thickness: 4
+  glow: 6
+  segments: 64
+  circularHitArea: 1
+--- !u!222 &1529956532
+CanvasRenderer:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1529956529}
+  m_CullTransparentMesh: 1
+--- !u!1 &1554993277
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 1554993278}
+  - component: {fileID: 1554993280}
+  - component: {fileID: 1554993279}
+  m_Layer: 5
+  m_Name: Life_0
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!224 &1554993278
+RectTransform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1554993277}
+  m_LocalRotation: {x: -0, y: -0, z: -0, w: 1}
+  m_LocalPosition: {x: 0, y: 0, z: 0}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children: []
+  m_Father: {fileID: 582395115}
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+  m_AnchorMin: {x: 0, y: 0}
+  m_AnchorMax: {x: 0, y: 0}
+  m_AnchoredPosition: {x: 0, y: 0}
+  m_SizeDelta: {x: 56, y: 56}
+  m_Pivot: {x: 0.5, y: 0.5}
+--- !u!114 &1554993279
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1554993277}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: c815c76b73ef6544691868b9bb01062e, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::NavesShooter.UI.NeonShapeGraphic
+  m_Material: {fileID: 0}
+  m_Color: {r: 0.2, g: 1, b: 1, a: 1}
+  m_RaycastTarget: 0
+  m_RaycastPadding: {x: 0, y: 0, z: 0, w: 0}
+  m_Maskable: 1
+  m_OnCullStateChanged:
+    m_PersistentCalls:
+      m_Calls: []
+  shape: 2
+  thickness: 4
+  glow: 6
+  segments: 64
+  circularHitArea: 1
+--- !u!222 &1554993280
+CanvasRenderer:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1554993277}
+  m_CullTransparentMesh: 1
 --- !u!1 &1644977144
 GameObject:
   m_ObjectHideFlags: 0
@@ -5194,6 +5508,76 @@ CanvasRenderer:
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 1803420160}
+  m_CullTransparentMesh: 1
+--- !u!1 &1836564547
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 1836564548}
+  - component: {fileID: 1836564550}
+  - component: {fileID: 1836564549}
+  m_Layer: 5
+  m_Name: Life_1
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!224 &1836564548
+RectTransform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1836564547}
+  m_LocalRotation: {x: -0, y: -0, z: -0, w: 1}
+  m_LocalPosition: {x: 0, y: 0, z: 0}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children: []
+  m_Father: {fileID: 582395115}
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+  m_AnchorMin: {x: 0, y: 0}
+  m_AnchorMax: {x: 0, y: 0}
+  m_AnchoredPosition: {x: 0, y: 0}
+  m_SizeDelta: {x: 56, y: 56}
+  m_Pivot: {x: 0.5, y: 0.5}
+--- !u!114 &1836564549
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1836564547}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: c815c76b73ef6544691868b9bb01062e, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::NavesShooter.UI.NeonShapeGraphic
+  m_Material: {fileID: 0}
+  m_Color: {r: 0.2, g: 1, b: 1, a: 1}
+  m_RaycastTarget: 0
+  m_RaycastPadding: {x: 0, y: 0, z: 0, w: 0}
+  m_Maskable: 1
+  m_OnCullStateChanged:
+    m_PersistentCalls:
+      m_Calls: []
+  shape: 2
+  thickness: 4
+  glow: 6
+  segments: 64
+  circularHitArea: 1
+--- !u!222 &1836564550
+CanvasRenderer:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1836564547}
   m_CullTransparentMesh: 1
 --- !u!1 &1874305288
 GameObject:
@@ -5867,3 +6251,4 @@ SceneRoots:
   - {fileID: 1562280562581009890}
   - {fileID: 1690848702}
   - {fileID: 1372197002}
+  - {fileID: 1143429132}

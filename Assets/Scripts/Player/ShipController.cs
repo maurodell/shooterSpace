@@ -7,7 +7,8 @@ namespace NavesShooter.Player
     // Nave del jugador: siempre se mueve hacia donde apunta (transform.up). El joystick (MoveDirection) da una
     // dirección objetivo: fuera de la zona muerta la nave acelera hasta `thrustSpeed` y rota hacia ese ángulo con
     // aceleración y desaceleración angular (nunca de golpe: una dirección opuesta se resuelve con una curva).
-    // Dentro de la zona muerta vuelve a `idleSpeed` y sigue recta.
+    // Dentro de la zona muerta vuelve a `idleSpeed` y sigue recta. Un golpe (`Knockback`) suma un empuje que se
+    // disipa a `knockbackDecay`, encima de la velocidad de avance.
     [RequireComponent(typeof(Rigidbody2D), typeof(PolygonCollider2D))]
     public class ShipController : MonoBehaviour
     {
@@ -27,6 +28,9 @@ namespace NavesShooter.Player
         [SerializeField, Tooltip("Grados/s² al soltar o invertir el giro.")] private float angularDeceleration = 1200f;
         [SerializeField, Range(0f, 0.9f), Tooltip("Magnitud mínima del joystick para avanzar y girar. Dentro de ella la nave sigue recta.")]
         private float deadZone = 0.2f;
+
+        [Header("Empuje")]
+        [SerializeField, Min(0f), Tooltip("Unidades/s² a las que se disipa el empuje de un golpe.")] private float knockbackDecay = 10f;
 
         [Header("Forma")]
         [SerializeField, Tooltip("Vértices locales del contorno y del collider. La punta mira a +Y.")]
@@ -48,6 +52,7 @@ namespace NavesShooter.Player
         private Rigidbody2D body;
         private float angularSpeed; // grados/s, positivo = antihorario
         private float speed;
+        private Vector2 knockback;
 
         private void Reset()
         {
@@ -70,6 +75,15 @@ namespace NavesShooter.Player
         {
             speed = idleSpeed;
             angularSpeed = 0f;
+            knockback = Vector2.zero;
+        }
+
+        // Empuje por un choque: se suma a la velocidad y se disipa solo. La nave pierde el avance, así el empuje no
+        // queda anulado por el thrust que la llevaba contra el obstáculo.
+        public void Knockback(Vector2 velocity)
+        {
+            knockback = velocity;
+            speed = Mathf.Min(speed, idleSpeed);
         }
 
         private void FixedUpdate()
@@ -90,7 +104,8 @@ namespace NavesShooter.Player
 
             body.angularVelocity = angularSpeed;
             float radians = body.rotation * Mathf.Deg2Rad;
-            body.linearVelocity = new Vector2(-Mathf.Sin(radians), Mathf.Cos(radians)) * speed;
+            knockback = Vector2.MoveTowards(knockback, Vector2.zero, knockbackDecay * Time.fixedDeltaTime);
+            body.linearVelocity = new Vector2(-Mathf.Sin(radians), Mathf.Cos(radians)) * speed + knockback;
         }
 
         // Velocidad angular deseada para llegar al ángulo de `direction`: la máxima que todavía permite frenar justo en
