@@ -5,11 +5,12 @@ using UnityEngine.UI;
 namespace NavesShooter.UI
 {
     // Contorno neón generado por código (sin sprites): un trazo de `thickness` con un halo `glow` que se desvanece
-    // a ambos lados. Sin relleno. La figura se inscribe en el rect; el triángulo apunta hacia arriba.
+    // a ambos lados. Sin relleno. La figura se inscribe en el rect; el triángulo apunta hacia arriba y el rombo tiene
+    // vértices arriba, abajo y a los costados.
     [RequireComponent(typeof(CanvasRenderer))]
     public class NeonShapeGraphic : MaskableGraphic, ICanvasRaycastFilter
     {
-        public enum Shape { Circle, Triangle }
+        public enum Shape { Circle, Triangle, Diamond }
 
         [SerializeField] private Shape shape = Shape.Circle;
         [SerializeField, Min(0f), Tooltip("Ancho del trazo en unidades del Canvas.")] private float thickness = 6f;
@@ -20,6 +21,17 @@ namespace NavesShooter.UI
 
         private static readonly List<Vector2> Points = new List<Vector2>();
 
+        public Shape ShapeType
+        {
+            get => shape;
+            set
+            {
+                if (shape == value) return;
+                shape = value;
+                SetVerticesDirty();
+            }
+        }
+
         protected override void OnPopulateMesh(VertexHelper vh)
         {
             vh.Clear();
@@ -29,7 +41,7 @@ namespace NavesShooter.UI
             if (radius <= 0f) return;
 
             Points.Clear();
-            int count = shape == Shape.Circle ? segments : 3;
+            int count = shape == Shape.Circle ? segments : shape == Shape.Diamond ? 4 : 3;
             for (int i = 0; i < count; i++)
             {
                 // Antihorario desde arriba, para que la normal de cada lado (e.y, -e.x) apunte hacia afuera.

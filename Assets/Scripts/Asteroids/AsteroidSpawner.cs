@@ -37,6 +37,8 @@ namespace NavesShooter.Asteroids
         private float aimedFraction = 0.5f;
         [SerializeField, Min(0f), Tooltip("Radio del área alrededor del jugador a la que apuntan los dirigidos (unidades).")]
         private float aimSpread = 3f;
+        [SerializeField, Tooltip("Layers, además de la de los asteroides, sobre las que no se puede spawnear (p. ej. la nave nodriza).")]
+        private LayerMask extraBlockingLayers;
 
         [Header("Proporción de tamaños (pesos relativos)")]
         [SerializeField, Min(0f)] private float largeWeight = 0.3f;
@@ -74,7 +76,7 @@ namespace NavesShooter.Asteroids
             }
 
             if (targetCamera == null) targetCamera = Camera.main;
-            blockingMask = 1 << asteroidPrefab.gameObject.layer;
+            blockingMask = (1 << asteroidPrefab.gameObject.layer) | extraBlockingLayers.value;
             pool = new ObjectPool<Asteroid>(asteroidPrefab, targetCount + poolReserve, new GameObject("Asteroids").transform);
         }
 

@@ -29,7 +29,8 @@ namespace NavesShooter.Player
         [SerializeField] private Color explosionColorB = new Color(0.85f, 1f, 1f);
 
         [Header("Reaparición")]
-        [SerializeField] private Vector2 spawnPoint = Vector2.zero;
+        [SerializeField, Tooltip("Lo fija el LevelManager al empezar (punto A).")] private Vector2 spawnPoint = Vector2.zero;
+        [SerializeField, Tooltip("Rotación al reaparecer, en grados (convención de Rigidbody2D.rotation).")] private float spawnRotation;
         [SerializeField, Min(0f), Tooltip("Segundos sin poder morir después de reaparecer.")] private float invulnerability = 2f;
         [SerializeField, Min(0.1f), Tooltip("Parpadeos por segundo durante la invulnerabilidad.")] private float blinkRate = 8f;
 
@@ -92,17 +93,31 @@ namespace NavesShooter.Player
             if (gameManager != null) gameManager.EndGame();
         }
 
+        // Fija el punto de reaparición y ubica la nave ahí. Pensado para el arranque del nivel, antes del primer paso
+        // de física (puede correr antes que el Awake de este componente).
+        public void PlaceAtSpawn(Vector2 position, float rotation)
+        {
+            spawnPoint = position;
+            spawnRotation = rotation;
+            if (body == null) body = GetComponent<Rigidbody2D>();
+            transform.SetPositionAndRotation(spawnPoint, Quaternion.Euler(0f, 0f, spawnRotation));
+            body.position = spawnPoint;
+            body.rotation = spawnRotation;
+        }
+
         // Reaparición: se ubica antes de activarse, para que el Rigidbody2D arranque en el punto de spawn. Sin
         // interpolar hasta el primer paso de física, así no se dibuja un frame entre el lugar de la muerte y el spawn.
+        // Si sigue activa (reinicio tras completar el nivel) se desactiva antes, para que los OnEnable reseteen su estado.
         private void Respawn()
         {
-            transform.SetPositionAndRotation(spawnPoint, Quaternion.identity);
+            if (gameObject.activeSelf) gameObject.SetActive(false);
+            transform.SetPositionAndRotation(spawnPoint, Quaternion.Euler(0f, 0f, spawnRotation));
             gameObject.SetActive(true);
 
             body.interpolation = RigidbodyInterpolation2D.None;
             pendingFirstStep = true;
             body.position = spawnPoint;
-            body.rotation = 0f;
+            body.rotation = spawnRotation;
             body.linearVelocity = Vector2.zero;
             body.angularVelocity = 0f;
 
