@@ -1,13 +1,16 @@
 using System;
+using NavesShooter.Weapons;
 using UnityEngine;
+using UnityEngine.Serialization;
 using Random = UnityEngine.Random;
 
 namespace NavesShooter.Asteroids
 {
-    // Explosión de los asteroides destruidos: chispas neón que salen del punto de ruptura, se frenan y se desvanecen
+    // Explosión de los cometas chicos destruidos: chispas neón que salen del punto de ruptura, se frenan y se desvanecen
     // rápido. Cada chispa es un quad estirado según su velocidad (stretched billboard): a toda velocidad se ve como una
     // línea y, frenada, como un cuadradito. Un solo ParticleSystem para todas las explosiones: cada una emite con `Emit`
     // sobre el mismo sistema, así no hay instancias que crear ni pool que mantener, y todas se dibujan juntas.
+    // También dibuja el destello de los proyectiles que pegan contra algo indestructible (Projectile.Blocked).
     // El sistema se configura entero por código en Awake; lo que se edite en sus módulos desde el Inspector se pisa.
     [RequireComponent(typeof(ParticleSystem))]
     public class ExplosionEffect : MonoBehaviour
@@ -22,19 +25,21 @@ namespace NavesShooter.Asteroids
             [Tooltip("Duración mínima (x) y máxima (y), en segundos.")] public Vector2 lifetimeRange;
         }
 
-        [Header("Por tamaño de asteroide")]
-        [SerializeField] private BurstSettings large = new BurstSettings
-        {
-            count = 30, spread = 0.7f, speedRange = new Vector2(2f, 7f), sizeRange = new Vector2(0.05f, 0.09f), lifetimeRange = new Vector2(0.35f, 0.7f),
-        };
-        [SerializeField] private BurstSettings medium = new BurstSettings
-        {
-            count = 18, spread = 0.4f, speedRange = new Vector2(1.8f, 5.5f), sizeRange = new Vector2(0.04f, 0.07f), lifetimeRange = new Vector2(0.3f, 0.55f),
-        };
-        [SerializeField] private BurstSettings small = new BurstSettings
+        [Header("Cometa chico")]
+        [SerializeField, FormerlySerializedAs("small")] private BurstSettings asteroid = new BurstSettings
         {
             count = 10, spread = 0.2f, speedRange = new Vector2(1.5f, 4.5f), sizeRange = new Vector2(0.03f, 0.05f), lifetimeRange = new Vector2(0.25f, 0.45f),
         };
+
+        [Header("Destello de impacto (proyectil contra algo indestructible)")]
+        [SerializeField] private BurstSettings impact = new BurstSettings
+        {
+            count = 6, spread = 0.05f, speedRange = new Vector2(1.5f, 4f), sizeRange = new Vector2(0.03f, 0.05f), lifetimeRange = new Vector2(0.1f, 0.22f),
+        };
+        [SerializeField, Range(0f, 1f), Tooltip("Fracción de la velocidad del proyectil con que el destello rebota hacia atrás.")]
+        private float impactRecoil = 0.12f;
+        [SerializeField] private Color impactColorA = new Color(1f, 0.9f, 0.15f);
+        [SerializeField] private Color impactColorB = Color.white;
 
         [Header("Movimiento")]
         [SerializeField, Range(0f, 1f), Tooltip("Fracción de la velocidad del asteroide que heredan las chispas.")]
@@ -68,24 +73,36 @@ namespace NavesShooter.Asteroids
             particles.Play();
         }
 
-        private void OnEnable() => Asteroid.Destroyed += OnAsteroidDestroyed;
+        private void OnEnable()
+        {
+            Asteroid.Destroyed += OnAsteroidDestroyed;
+            Projectile.Blocked += OnProjectileBlocked;
+        }
 
-        private void OnDisable() => Asteroid.Destroyed -= OnAsteroidDestroyed;
+        private void OnDisable()
+        {
+            Asteroid.Destroyed -= OnAsteroidDestroyed;
+            Projectile.Blocked -= OnProjectileBlocked;
+        }
 
         private void OnAsteroidDestroyed(AsteroidDestroyed destroyed)
         {
-            Explode(destroyed.Position, destroyed.Velocity, destroyed.Size);
+            Explode(destroyed.Position, destroyed.Velocity, asteroid, colorA, colorB);
         }
 
-        public void Explode(Vector2 position, Vector2 velocity, AsteroidSize size)
+        private void OnProjectileBlocked(Vector2 position, Vector2 velocity)
         {
-            Explode(position, velocity, Settings(size), colorA, colorB);
+            Emit(position, -velocity * impactRecoil, impact, impactColorA, impactColorB);
         }
 
         // Explosión con ráfaga y colores propios (p. ej. la nave del jugador, en cian), sobre el mismo sistema.
         public void Explode(Vector2 position, Vector2 velocity, BurstSettings burst, Color colorA, Color colorB)
         {
-            Vector2 inherited = velocity * inheritVelocity;
+            Emit(position, velocity * inheritVelocity, burst, colorA, colorB);
+        }
+
+        private void Emit(Vector2 position, Vector2 inherited, BurstSettings burst, Color colorA, Color colorB)
+        {
             var emit = new ParticleSystem.EmitParams { applyShapeToPosition = false };
 
             for (int i = 0; i < burst.count; i++)
@@ -99,16 +116,6 @@ namespace NavesShooter.Asteroids
                 emit.startLifetime = Random.Range(burst.lifetimeRange.x, burst.lifetimeRange.y);
                 emit.startColor = Color.Lerp(colorA, colorB, Random.value);
                 particles.Emit(emit, 1);
-            }
-        }
-
-        private BurstSettings Settings(AsteroidSize size)
-        {
-            switch (size)
-            {
-                case AsteroidSize.Medium: return medium;
-                case AsteroidSize.Small: return small;
-                default: return large;
             }
         }
 

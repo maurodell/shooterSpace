@@ -19,6 +19,7 @@ namespace NavesShooter.Core
         [SerializeField, Tooltip("Punto de inicio (A) en el mundo.")] private Vector2 startPoint = Vector2.zero;
 
         public LevelDefinition Level => level;
+        public Mothership Mothership => mothership;
         public Vector2 StartPoint => startPoint;
         public Vector2 TargetPoint { get; private set; }
         public float TotalDistance => level != null ? level.Distance : 0f;

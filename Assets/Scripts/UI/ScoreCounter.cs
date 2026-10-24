@@ -2,20 +2,19 @@ using NavesShooter.Asteroids;
 using NavesShooter.Core;
 using TMPro;
 using UnityEngine;
+using UnityEngine.Serialization;
 
 namespace NavesShooter.UI
 {
-    // Puntaje de la partida: suma por cada asteroide destruido (los chicos valen más, son más difíciles de acertar).
+    // Puntaje de la partida: suma `points` por cada cometa chico destruido (los grandes son indestructibles).
     // Solo cuenta en Playing: un proyectil que siga en vuelo tras la muerte no suma. Vuelve a 0 al reiniciar.
     public class ScoreCounter : MonoBehaviour
     {
         [SerializeField] private GameManager gameManager;
         [SerializeField] private TMP_Text label;
 
-        [Header("Puntos por tamaño")]
-        [SerializeField, Min(0)] private int largePoints = 20;
-        [SerializeField, Min(0)] private int mediumPoints = 50;
-        [SerializeField, Min(0)] private int smallPoints = 100;
+        [SerializeField, Min(0), FormerlySerializedAs("smallPoints"), Tooltip("Puntos por cometa chico destruido.")]
+        private int points = 100;
 
         public int Score { get; private set; }
 
@@ -36,7 +35,7 @@ namespace NavesShooter.UI
         private void OnAsteroidDestroyed(AsteroidDestroyed destroyed)
         {
             if (gameManager != null && gameManager.State != GameState.Playing) return;
-            Score += Points(destroyed.Size);
+            Score += points;
             Refresh();
         }
 
@@ -44,16 +43,6 @@ namespace NavesShooter.UI
         {
             Score = 0;
             Refresh();
-        }
-
-        private int Points(AsteroidSize size)
-        {
-            switch (size)
-            {
-                case AsteroidSize.Medium: return mediumPoints;
-                case AsteroidSize.Small: return smallPoints;
-                default: return largePoints;
-            }
         }
 
         private void Refresh()

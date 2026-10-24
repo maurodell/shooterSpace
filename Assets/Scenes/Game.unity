@@ -171,9 +171,7 @@ MonoBehaviour:
   m_EditorClassIdentifier: Assembly-CSharp::NavesShooter.UI.ScoreCounter
   gameManager: {fileID: 1447734612}
   label: {fileID: 89902088}
-  largePoints: 20
-  mediumPoints: 50
-  smallPoints: 100
+  points: 100
 --- !u!114 &89902088
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -892,24 +890,21 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 514d939e7835bf544aa89795df4747bd, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::NavesShooter.Asteroids.ExplosionEffect
-  large:
-    count: 30
-    spread: 0.7
-    speedRange: {x: 2, y: 7}
-    sizeRange: {x: 0.05, y: 0.09}
-    lifetimeRange: {x: 0.35, y: 0.7}
-  medium:
-    count: 18
-    spread: 0.4
-    speedRange: {x: 1.8, y: 5.5}
-    sizeRange: {x: 0.04, y: 0.07}
-    lifetimeRange: {x: 0.3, y: 0.55}
-  small:
+  asteroid:
     count: 10
     spread: 0.2
     speedRange: {x: 1.5, y: 4.5}
     sizeRange: {x: 0.03, y: 0.05}
     lifetimeRange: {x: 0.25, y: 0.45}
+  impact:
+    count: 6
+    spread: 0.05
+    speedRange: {x: 1.5, y: 4}
+    sizeRange: {x: 0.03, y: 0.05}
+    lifetimeRange: {x: 0.1, y: 0.22}
+  impactRecoil: 0.12
+  impactColorA: {r: 1, g: 0.9, b: 0.15, a: 1}
+  impactColorB: {r: 1, g: 1, b: 1, a: 1}
   inheritVelocity: 0.4
   drag: 4
   material: {fileID: 2100000, guid: 9e4f248f3da2d774187c41822f67c162, type: 2}
@@ -3739,7 +3734,7 @@ MonoBehaviour:
   targetCamera: {fileID: 661843592}
   player: {fileID: 422487598}
   gameManager: {fileID: 1447734612}
-  targetCount: 14
+  targetCount: 10
   spawnRadius: 12.5
   spawnRingWidth: 3
   despawnDistance: 22
@@ -3748,12 +3743,6 @@ MonoBehaviour:
   extraBlockingLayers:
     serializedVersion: 2
     m_Bits: 2048
-  largeWeight: 0.3
-  mediumWeight: 0.4
-  smallWeight: 0.3
-  fragmentInheritVelocity: 0.5
-  fragmentAngleJitter: 25
-  poolReserve: 16
 --- !u!4 &853163811
 Transform:
   m_ObjectHideFlags: 0
@@ -4378,7 +4367,7 @@ MonoBehaviour:
   m_fontMaterials: []
   m_fontColor32:
     serializedVersion: 2
-    rgba: 3212050252
+    rgba: 4285792076
   m_fontColor: {r: 0.3, g: 1, b: 0.45, a: 1}
   m_enableVertexGradient: 0
   m_colorMode: 3
@@ -4725,6 +4714,67 @@ CanvasRenderer:
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 1341855351}
   m_CullTransparentMesh: 1
+--- !u!1 &1372197000
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 1372197002}
+  - component: {fileID: 1372197001}
+  m_Layer: 0
+  m_Name: LargeCometField
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!114 &1372197001
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1372197000}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 965c83ea1f47db6408a4fcba753be55b, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::NavesShooter.Asteroids.LargeCometField
+  levelManager: {fileID: 1690848701}
+  cometPrefab: {fileID: 7776660665151924139, guid: aa94649203ce0fc4ca14fd4a15b4bb8d, type: 3}
+  targetCamera: {fileID: 661843592}
+  halfWidth: 20
+  behindStart: 12
+  beyondTarget: 20
+  startClearance: 8
+  targetClearance: 5
+  radiusRange: {x: 1.2, y: 2.8}
+  minGap: 2.5
+  sparseSpacing: 14
+  denseSpacing: 6.5
+  candidatesPerPoint: 20
+  spinRange: {x: 2, y: 7}
+  activationRadius: 24
+  hysteresis: 4
+  initialPoolSize: 48
+--- !u!4 &1372197002
+Transform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1372197000}
+  serializedVersion: 2
+  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
+  m_LocalPosition: {x: 0, y: 0, z: 0}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children: []
+  m_Father: {fileID: 0}
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
 --- !u!1 &1447734611
 GameObject:
   m_ObjectHideFlags: 0
@@ -5816,3 +5866,4 @@ SceneRoots:
   - {fileID: 689705804}
   - {fileID: 1562280562581009890}
   - {fileID: 1690848702}
+  - {fileID: 1372197002}

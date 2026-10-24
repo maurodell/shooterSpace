@@ -39,6 +39,7 @@ namespace NavesShooter.Level
         private const float HullLength = 4f;     // media eslora (proa en +Y)
         private const float HullHalfWidth = 1.8f;
         private const float HullShoulder = 2.6f; // altura de los vértices laterales
+        private const float NozzleEnd = 4.5f;    // las toberas sobresalen de la popa hasta acá
         private const int DockSegments = 48;
         private const string LinePrefix = "Line_";
 
@@ -59,6 +60,9 @@ namespace NavesShooter.Level
 
         public Vector2 DockPosition => transform.TransformPoint(LocalDockCenter);
         public float DockRadius => dockRadius * scale;
+
+        // Radio del círculo centrado en el transform que contiene el casco y las toberas.
+        public float HullRadius => NozzleEnd * scale;
 
         private void Awake()
         {
@@ -194,8 +198,8 @@ namespace NavesShooter.Level
             strokes.Add(Shape(false, false, true, new Vector2(0f, -HullLength * inner), new Vector2(0f, -HullLength)));
 
             // Motores: dos toberas que sobresalen de la popa.
-            strokes.Add(Shape(true, false, false, new Vector2(0.45f, -3.1f), new Vector2(1.05f, -3.1f), new Vector2(1.05f, -4.5f), new Vector2(0.45f, -4.5f)));
-            strokes.Add(Shape(true, false, false, new Vector2(-0.45f, -3.1f), new Vector2(-1.05f, -3.1f), new Vector2(-1.05f, -4.5f), new Vector2(-0.45f, -4.5f)));
+            strokes.Add(Shape(true, false, false, new Vector2(0.45f, -3.1f), new Vector2(1.05f, -3.1f), new Vector2(1.05f, -NozzleEnd), new Vector2(0.45f, -NozzleEnd)));
+            strokes.Add(Shape(true, false, false, new Vector2(-0.45f, -3.1f), new Vector2(-1.05f, -3.1f), new Vector2(-1.05f, -NozzleEnd), new Vector2(-0.45f, -NozzleEnd)));
 
             // Zona de acople: círculo delante de la proa y una flecha que apunta hacia el casco.
             Vector2 center = new Vector2(0f, HullLength + dockGap + dockRadius);

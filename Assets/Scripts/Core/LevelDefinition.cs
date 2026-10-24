@@ -25,10 +25,16 @@ namespace NavesShooter.Core
         [Header("Generación procedural")]
         [SerializeField] private int seed = 1;
 
-        // Dificultad: acá van las curvas en función de LevelManager.Progress (0 en A, 1 en B).
+        [Header("Dificultad")]
+        [SerializeField, Range(0f, 1f), Tooltip("Densidad de cometas grandes en el recorrido: 0 = separación máxima entre ellos, " +
+            "1 = mínima (LargeCometField). Los pasillos navegables se respetan con cualquier valor.")]
+        private float cometDensity = 0.5f;
+
+        // Acá van también las curvas en función de LevelManager.Progress (0 en A, 1 en B).
 
         public float Distance => distance;
         public int Seed => seed;
+        public float CometDensity => cometDensity;
 
         // Ángulo de B respecto de A, con la convención de Rigidbody2D.rotation.
         public float DirectionAngle => directionMode == DirectionMode.Fixed
@@ -49,5 +55,5 @@ namespace NavesShooter.Core
         public System.Random CreateRandom(RandomStream stream) => new System.Random(unchecked(seed * 486187739 + (int)stream));
     }
 
-    public enum RandomStream { Direction }
+    public enum RandomStream { Direction, LargeComets }
 }
