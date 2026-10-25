@@ -108,6 +108,8 @@ namespace NavesShooter.Enemies
         private float flashTime;
         private Vector2 repositionDirection;
         private bool pendingFirstStep;
+        private float fireRateScale = 1f;
+        private float inaccuracyScale = 1f;
 
         public State CurrentState { get; private set; }
 
@@ -139,13 +141,17 @@ namespace NavesShooter.Enemies
             health.Died -= OnDied;
         }
 
-        // Activación desde el pool, después de pool.Get (que ya la ubicó mirando hacia el jugador).
-        public void Launch(ObjectPool<EnemyShip> owner, ObjectPool<Projectile> projectilePool, Transform player, GameManager manager)
+        // Activación desde el pool, después de pool.Get (que ya la ubicó mirando hacia el jugador). Agresividad según la
+        // dificultad: `fireRate` divide la espera entre ráfagas y `inaccuracyMultiplier` escala el desvío de cada disparo.
+        public void Launch(ObjectPool<EnemyShip> owner, ObjectPool<Projectile> projectilePool, Transform player, GameManager manager,
+            float fireRate = 1f, float inaccuracyMultiplier = 1f)
         {
             pool = owner;
             projectiles = projectilePool;
             target = player;
             gameManager = manager;
+            fireRateScale = Mathf.Max(fireRate, 0.05f);
+            inaccuracyScale = Mathf.Max(inaccuracyMultiplier, 0f);
 
             health.Restore();
             CurrentState = State.Approach;
@@ -312,13 +318,14 @@ namespace NavesShooter.Enemies
 
             Fire();
             burstLeft--;
-            fireTimer += burstLeft > 0 ? burstInterval : burstCooldown;
+            fireTimer += burstLeft > 0 ? burstInterval : burstCooldown / fireRateScale;
         }
 
         private void Fire()
         {
             // Pose interpolada del transform (la que se ve), así el proyectil sale de la punta dibujada.
-            Vector2 direction = Rotate(transform.up, Random.Range(-inaccuracy, inaccuracy));
+            float spread = inaccuracy * inaccuracyScale;
+            Vector2 direction = Rotate(transform.up, Random.Range(-spread, spread));
             Vector2 origin = transform.TransformPoint(muzzleOffset);
             Vector2 velocity = direction * projectileSpeed + body.linearVelocity;
 

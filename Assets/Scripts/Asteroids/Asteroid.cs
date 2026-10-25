@@ -99,8 +99,9 @@ namespace NavesShooter.Asteroids
         }
 
         // Activación desde el pool: resetea todo el estado de la instancia reutilizada. Llamar después de pool.Get, que
-        // ya la ubicó y le dio la rotación inicial. Velocidad y giro salen al azar de los rangos.
-        public void Launch(ObjectPool<Asteroid> owner, Vector2 direction)
+        // ya la ubicó y le dio la rotación inicial. Velocidad y giro salen al azar de los rangos; la velocidad se
+        // multiplica por `speedScale` (dificultad).
+        public void Launch(ObjectPool<Asteroid> owner, Vector2 direction, float speedScale = 1f)
         {
             pool = owner;
             BuildShape(shapeRandom);
@@ -112,7 +113,7 @@ namespace NavesShooter.Asteroids
             pendingFirstStep = true;
             body.position = transform.position;
             body.rotation = transform.eulerAngles.z;
-            body.linearVelocity = direction.normalized * Random.Range(speedRange.x, speedRange.y);
+            body.linearVelocity = direction.normalized * (Random.Range(speedRange.x, speedRange.y) * speedScale);
             float spin = Random.Range(spinRange.x, spinRange.y);
             body.angularVelocity = Random.value < 0.5f ? spin : -spin;
         }

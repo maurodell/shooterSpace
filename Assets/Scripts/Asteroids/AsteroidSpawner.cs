@@ -1,13 +1,15 @@
 using System.Collections.Generic;
 using NavesShooter.Core;
 using UnityEngine;
+using UnityEngine.Serialization;
 
 namespace NavesShooter.Asteroids
 {
-    // Mantiene `targetCount` cometas chicos activos alrededor de la cámara (que sigue al jugador). Los nuevos aparecen en
-    // un anillo centrado en la cámara, siempre fuera de la vista: el radio interior nunca baja de la semidiagonal visible
-    // más el radio del cometa. No aparecen encima de otro cometa, chico o grande. Los que se alejan más de `despawnDistance` vuelven al pool y se reponen en el mismo
-    // frame, así la cantidad activa se mantiene estable. Una fracción apunta a la zona del jugador; el resto sale hacia
+    // Mantiene cometas chicos activos alrededor de la cámara (que sigue al jugador): la cantidad y la velocidad las da el
+    // DifficultyDirector según el progreso, y cada cometa nuevo tiene que entrar en su presupuesto de amenaza. Los nuevos
+    // aparecen en un anillo centrado en la cámara, siempre fuera de la vista: el radio interior nunca baja de la
+    // semidiagonal visible más el radio del cometa. No aparecen encima de otro cometa, chico o grande. Los que se alejan
+    // más de `despawnDistance` vuelven al pool y se reponen en el mismo frame si hay presupuesto. Una fracción apunta a la zona del jugador; el resto sale hacia
     // una dirección al azar dentro del semiplano que mira a la cámara, para que no se alejen apenas aparecen.
     public class AsteroidSpawner : MonoBehaviour
     {
@@ -19,10 +21,11 @@ namespace NavesShooter.Asteroids
         private Transform player;
         [SerializeField, Tooltip("Al reiniciar la partida, todos los asteroides vuelven al pool.")]
         private GameManager gameManager;
+        [SerializeField, Tooltip("Cantidad, velocidad y presupuesto de amenaza.")] private DifficultyDirector director;
 
-        [Header("Cantidad")]
-        [SerializeField, Min(0), Tooltip("Asteroides activos que se mantienen alrededor de la cámara.")]
-        private int targetCount = 14;
+        [Header("Pool")]
+        [SerializeField, Min(0), FormerlySerializedAs("targetCount"), Tooltip("Asteroides precreados. El pool crece si se agotan.")]
+        private int initialPoolSize = 10;
 
         [Header("Distancias (desde la cámara)")]
         [SerializeField, Min(0f), Tooltip("Radio interior del anillo de spawn. Si queda dentro de la vista se agranda lo justo para que el asteroide aparezca fuera.")]
@@ -54,16 +57,16 @@ namespace NavesShooter.Asteroids
 
         private void Awake()
         {
-            if (asteroidPrefab == null)
+            if (asteroidPrefab == null || director == null)
             {
-                Debug.LogError($"{nameof(AsteroidSpawner)}: falta asignar el prefab del asteroide.", this);
+                Debug.LogError($"{nameof(AsteroidSpawner)}: faltan referencias (prefab del asteroide o director).", this);
                 enabled = false;
                 return;
             }
 
             if (targetCamera == null) targetCamera = Camera.main;
             blockingMask = (1 << asteroidPrefab.gameObject.layer) | extraBlockingLayers.value;
-            pool = new ObjectPool<Asteroid>(asteroidPrefab, targetCount, new GameObject("Asteroids").transform);
+            pool = new ObjectPool<Asteroid>(asteroidPrefab, initialPoolSize, new GameObject("Asteroids").transform);
         }
 
         private void OnEnable()
@@ -82,6 +85,7 @@ namespace NavesShooter.Asteroids
         {
             pool.ReleaseAll();
             active.Clear();
+            director.ReportActive(ThreatKind.SmallComet, 0);
             resumeFrame = Time.frameCount + 1;
         }
 
@@ -100,7 +104,9 @@ namespace NavesShooter.Asteroids
             }
 
             RemoveInactive();
-            while (active.Count < targetCount && TrySpawn(center)) { }
+            director.ReportActive(ThreatKind.SmallComet, active.Count);
+            while (active.Count < director.SmallCometCount && director.CanAfford(ThreatKind.SmallComet) && TrySpawn(center))
+                director.ReportActive(ThreatKind.SmallComet, active.Count);
         }
 
         // Saca de la lista los que volvieron al pool: por distancia o destruidos por un disparo. Recorrido inverso con
@@ -127,7 +133,7 @@ namespace NavesShooter.Asteroids
                 if (Physics2D.OverlapCircle(position, radius + SpawnGap, blockingMask) != null) continue;
 
                 Asteroid asteroid = pool.Get(position, Quaternion.Euler(0f, 0f, Random.Range(0f, 360f)));
-                asteroid.Launch(pool, ChooseHeading(position, center));
+                asteroid.Launch(pool, ChooseHeading(position, center), director.SmallCometSpeed);
                 active.Add(asteroid);
                 return true;
             }

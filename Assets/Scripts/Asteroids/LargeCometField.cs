@@ -6,9 +6,11 @@ namespace NavesShooter.Asteroids
 {
     // Campo de cometas grandes a lo largo del recorrido de A a B. Se genera una sola vez al empezar, con la semilla del
     // nivel (siempre el mismo campo para el mismo nivel), sobre una franja de `halfWidth` a cada lado de la recta A→B.
-    // Distribución Poisson disk (Bridson): ningún par de centros a menos de `spacing`, y además ningún par de bordes a
-    // menos de `minGap`, así siempre quedan pasillos navegables. El radio de cada cometa se elige después de ver a sus
-    // vecinos: cerca de otro cometa, de A o de la nave nodriza sale más chico, o el candidato se descarta.
+    // Distribución Poisson disk (Bridson) con separación variable: ningún par de centros a menos de `spacing`, que
+    // depende de la densidad del DifficultyDirector en ese punto del recorrido (más ralo al principio, más denso hacia el
+    // final), y además ningún par de bordes a menos de `minGap`, así siempre quedan pasillos navegables. El radio de cada
+    // cometa se elige después de ver a sus vecinos: cerca de otro cometa, de A o de la nave nodriza sale más chico, o el
+    // candidato se descarta. Alrededor de B queda la zona de llegada (LevelDefinition.ArrivalClearRadius) sin cometas.
     // Todos los cometas son datos; solo los que están a menos de `activationRadius` de la cámara tienen un GameObject
     // del pool. Se buscan con una grilla espacial, y se desactivan recién a `activationRadius + hysteresis` para que no
     // parpadeen en el borde.
@@ -16,6 +18,7 @@ namespace NavesShooter.Asteroids
     {
         [Header("Referencias")]
         [SerializeField] private LevelManager levelManager;
+        [SerializeField, Tooltip("Densidad a lo largo del recorrido y zona de llegada.")] private DifficultyDirector director;
         [SerializeField] private LargeComet cometPrefab;
         [SerializeField, Tooltip("Centro de la activación. Si está vacío usa Camera.main.")] private Camera targetCamera;
 
@@ -32,7 +35,7 @@ namespace NavesShooter.Asteroids
         [SerializeField, Tooltip("Radio mínimo (x) y máximo (y) de un cometa.")] private Vector2 radiusRange = new Vector2(1.2f, 2.8f);
         [SerializeField, Min(0f), Tooltip("Pasillo mínimo entre los bordes de dos cometas (la nave mide ~0.65 de ancho).")]
         private float minGap = 2.5f;
-        [SerializeField, Min(0.1f), Tooltip("Separación mínima entre centros con densidad 0 (LevelDefinition.CometDensity).")]
+        [SerializeField, Min(0.1f), Tooltip("Separación mínima entre centros con densidad 0 (DifficultyDirector.LargeCometDensityAt).")]
         private float sparseSpacing = 14f;
         [SerializeField, Min(0.1f), Tooltip("Separación mínima entre centros con densidad 1.")]
         private float denseSpacing = 6.5f;
@@ -63,9 +66,9 @@ namespace NavesShooter.Asteroids
 
         private void Awake()
         {
-            if (levelManager == null || cometPrefab == null)
+            if (levelManager == null || director == null || cometPrefab == null)
             {
-                Debug.LogError($"{nameof(LargeCometField)}: faltan referencias (LevelManager o prefab).", this);
+                Debug.LogError($"{nameof(LargeCometField)}: faltan referencias (LevelManager, director o prefab).", this);
                 enabled = false;
                 return;
             }
@@ -124,7 +127,6 @@ namespace NavesShooter.Asteroids
         {
             LevelDefinition level = levelManager.Level;
             System.Random random = level.CreateRandom(RandomStream.LargeComets);
-            float spacing = Mathf.Lerp(sparseSpacing, denseSpacing, level.CometDensity);
 
             Vector2 origin = levelManager.StartPoint;
             Vector2 forward = level.Direction;
@@ -132,31 +134,39 @@ namespace NavesShooter.Asteroids
             float minY = -behindStart;
             float maxY = level.Distance + beyondTarget;
 
-            // Exclusiones (en locales): A, la zona de acople y el casco de la nave nodriza.
+            // Separación entre centros en la posición y local: la del progreso de ese punto (0 en A, 1 en B).
+            float SpacingAt(float y) => Mathf.Lerp(sparseSpacing, denseSpacing, director.LargeCometDensityAt(y / level.Distance));
+            float minSpacing = Mathf.Min(sparseSpacing, denseSpacing);
+            float maxSpacing = Mathf.Max(sparseSpacing, denseSpacing);
+
+            // Exclusiones (en locales): A, la zona de llegada alrededor de B, la zona de acople y el casco de la nave nodriza.
             var exclusions = new List<Vector3> { new Vector3(0f, 0f, startClearance) };
             var mothership = levelManager.Mothership;
             if (mothership != null)
             {
+                exclusions.Add(ToLocal(mothership.DockPosition, origin, right, forward, director.ArrivalClearRadius));
                 exclusions.Add(ToLocal(mothership.DockPosition, origin, right, forward, mothership.DockRadius + targetClearance));
                 exclusions.Add(ToLocal(mothership.transform.position, origin, right, forward, mothership.HullRadius + targetClearance));
             }
 
-            // Con celdas de lado spacing/√2 cabe a lo sumo un centro por celda.
-            float cellSize = spacing / Mathf.Sqrt(2f);
+            // Con celdas de lado (separación mínima)/√2 cabe a lo sumo un centro por celda.
+            float cellSize = minSpacing / Mathf.Sqrt(2f);
             int columns = Mathf.Max(1, Mathf.CeilToInt(2f * halfWidth / cellSize));
             int rows = Mathf.Max(1, Mathf.CeilToInt((maxY - minY) / cellSize));
             var grid = new int[columns * rows];
             for (int i = 0; i < grid.Length; i++) grid[i] = -1;
-            int reachCells = Mathf.CeilToInt(Mathf.Max(spacing, 2f * radiusRange.y + minGap) / cellSize);
+            int reachCells = Mathf.CeilToInt(Mathf.Max(maxSpacing, 2f * radiusRange.y + minGap) / cellSize);
 
             var positions = new List<Vector2>();
             var radii = new List<float>();
+            var spacings = new List<float>();
             var open = new List<int>();
 
             bool TryAdd(Vector2 p)
             {
                 if (p.x < -halfWidth || p.x >= halfWidth || p.y < minY || p.y >= maxY) return false;
 
+                float spacing = SpacingAt(p.y);
                 float allowed = radiusRange.y;
                 foreach (Vector3 exclusion in exclusions)
                     allowed = Mathf.Min(allowed, Vector2.Distance(p, exclusion) - exclusion.z);
@@ -170,7 +180,8 @@ namespace NavesShooter.Asteroids
                         int other = grid[y * columns + x];
                         if (other < 0) continue;
                         float distance = Vector2.Distance(p, positions[other]);
-                        if (distance < spacing) return false;
+                        // La mayor de las dos: un punto del tramo denso no invade el ralo vecino.
+                        if (distance < Mathf.Max(spacing, spacings[other])) return false;
                         allowed = Mathf.Min(allowed, distance - radii[other] - minGap);
                     }
                 }
@@ -180,6 +191,7 @@ namespace NavesShooter.Asteroids
                 grid[cy * columns + cx] = positions.Count;
                 open.Add(positions.Count);
                 positions.Add(p);
+                spacings.Add(spacing);
                 radii.Add(AsteroidShape.Range(random, radiusRange.x, allowed));
                 return true;
             }
@@ -191,11 +203,12 @@ namespace NavesShooter.Asteroids
                 if (TryAdd(seed)) break;
             }
 
-            // Cada punto abierto prueba candidatos en el anillo [spacing, 2·spacing]; si ninguno entra, se cierra.
+            // Cada punto abierto prueba candidatos en el anillo [spacing, 2·spacing] de su separación; si ninguno entra, se cierra.
             while (open.Count > 0)
             {
                 int pick = random.Next(open.Count);
                 Vector2 from = positions[open[pick]];
+                float spacing = spacings[open[pick]];
                 bool added = false;
                 for (int k = 0; k < candidatesPerPoint && !added; k++)
                 {

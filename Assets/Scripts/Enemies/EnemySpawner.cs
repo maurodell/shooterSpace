@@ -2,14 +2,18 @@ using System.Collections.Generic;
 using NavesShooter.Core;
 using NavesShooter.Weapons;
 using UnityEngine;
+using UnityEngine.Serialization;
 
 namespace NavesShooter.Enemies
 {
-    // Hace aparecer naves enemigas de a una, cada `spawnInterval` segundos y hasta `maxEnemies` simultáneas. Aparecen
+    // Hace aparecer naves enemigas en oleadas, con los valores del DifficultyDirector según el progreso: cada oleada
+    // tiene `MaxEnemies` naves (las simultáneas como máximo), que aparecen de a una cada `EnemySpawnInterval` segundos y
+    // solo si entran en el presupuesto de amenaza (las que faltan quedan reservadas: los cometas chicos no les ocupan
+    // el lugar). Cuando ya no queda ninguna de la oleada (destruidas o perdidas de vista) hay `WaveBreak` segundos de
+    // calma antes de la siguiente. Con `MaxEnemies` en 0 (arranque del nivel) no empieza ninguna oleada. Aparecen
     // en el mismo anillo fuera de la vista que los cometas chicos, preferentemente por delante del jugador en la
     // dirección de la nave nodriza (`forwardChance`, dentro de ±`forwardSpread`), mirando hacia él. Nunca encima de un
     // cometa (los grandes cercanos a la cámara siempre tienen collider), de la nave nodriza ni de otro enemigo.
-    // Con el máximo alcanzado el reloj no corre: después de destruir uno, el siguiente tarda un intervalo completo.
     // Las que se alejan más de `despawnDistance` vuelven al pool sin explotar. Es dueño de los pools de las naves y
     // de sus proyectiles (compartido por todas). Solo actúa en Playing.
     public class EnemySpawner : MonoBehaviour
@@ -22,11 +26,11 @@ namespace NavesShooter.Enemies
         [SerializeField, Tooltip("A quién persiguen.")] private Transform player;
         [SerializeField, Tooltip("Da la dirección hacia la nave nodriza (B).")] private LevelManager levelManager;
         [SerializeField] private GameManager gameManager;
+        [SerializeField, Tooltip("Tamaño de oleada, intervalos, agresividad y presupuesto de amenaza.")]
+        private DifficultyDirector director;
 
-        [Header("Cantidad")]
-        [SerializeField, Min(0), Tooltip("Enemigos activos a la vez como máximo.")] private int maxEnemies = 3;
-        [SerializeField, Min(0.1f), Tooltip("Segundos entre apariciones.")] private float spawnInterval = 6f;
-        [SerializeField, Min(0f), Tooltip("Segundos hasta el primer enemigo, al empezar y al reiniciar.")] private float initialDelay = 4f;
+        [Header("Oleadas")]
+        [SerializeField, Min(0f), Tooltip("Segundos mínimos hasta la primera oleada, al empezar y al reiniciar.")] private float initialDelay = 4f;
 
         [Header("Ubicación (desde la cámara)")]
         [SerializeField, Min(0f), Tooltip("Radio interior del anillo. Si queda dentro de la vista se agranda lo justo.")]
@@ -43,6 +47,8 @@ namespace NavesShooter.Enemies
         private LayerMask blockingLayers;
 
         [Header("Pool")]
+        [SerializeField, Min(0), FormerlySerializedAs("maxEnemies"), Tooltip("Naves precreadas. El pool crece si se agotan.")]
+        private int initialPoolSize = 4;
         [SerializeField, Min(0), Tooltip("Proyectiles enemigos precreados. El pool crece si se agotan.")]
         private int projectilePoolSize = 24;
 
@@ -54,32 +60,28 @@ namespace NavesShooter.Enemies
         private ObjectPool<EnemyShip> pool;
         private ObjectPool<Projectile> projectilePool;
         private float timer;
+        private bool inWave;
+        private int waveRemaining;
 
         public int ActiveCount => active.Count;
-
-        public int MaxEnemies
-        {
-            get => maxEnemies;
-            set => maxEnemies = Mathf.Max(value, 0);
-        }
-
-        public float SpawnInterval
-        {
-            get => spawnInterval;
-            set => spawnInterval = Mathf.Max(value, 0.1f);
-        }
+        public bool InWave => inWave;
+        public int WaveSize { get; private set; }
+        // Naves de la oleada en curso que todavía no aparecieron.
+        public int WaveRemaining => waveRemaining;
+        // Segundos hasta que pueda empezar la próxima oleada (0 durante una oleada).
+        public float CalmRemaining => inWave ? 0f : Mathf.Max(timer, 0f);
 
         private void Awake()
         {
-            if (enemyPrefab == null || projectilePrefab == null || player == null)
+            if (enemyPrefab == null || projectilePrefab == null || player == null || director == null)
             {
-                Debug.LogError($"{nameof(EnemySpawner)}: faltan referencias (prefabs o jugador).", this);
+                Debug.LogError($"{nameof(EnemySpawner)}: faltan referencias (prefabs, jugador o director).", this);
                 enabled = false;
                 return;
             }
 
             if (targetCamera == null) targetCamera = Camera.main;
-            pool = new ObjectPool<EnemyShip>(enemyPrefab, maxEnemies, new GameObject("Enemies").transform);
+            pool = new ObjectPool<EnemyShip>(enemyPrefab, initialPoolSize, new GameObject("Enemies").transform);
             projectilePool = new ObjectPool<Projectile>(projectilePrefab, projectilePoolSize, new GameObject("EnemyProjectiles").transform);
             timer = initialDelay;
         }
@@ -94,13 +96,18 @@ namespace NavesShooter.Enemies
             if (gameManager != null) gameManager.Restarted -= DespawnAll;
         }
 
-        // Al reiniciar: todo al pool sin explotar ni sumar puntos, y vuelve a esperar `initialDelay`.
+        // Al reiniciar: todo al pool sin explotar ni sumar puntos, se corta la oleada y vuelve a esperar `initialDelay`.
         private void DespawnAll()
         {
             pool.ReleaseAll();
             projectilePool.ReleaseAll();
             active.Clear();
             timer = initialDelay;
+            inWave = false;
+            waveRemaining = 0;
+            WaveSize = 0;
+            director.ReportActive(ThreatKind.Enemy, 0);
+            director.ReportReserved(ThreatKind.Enemy, 0);
         }
 
         private void Update()
@@ -116,16 +123,34 @@ namespace NavesShooter.Enemies
                     enemy.Despawn();
             }
             RemoveInactive();
+            director.ReportActive(ThreatKind.Enemy, active.Count);
 
-            if (active.Count >= maxEnemies)
+            timer = Mathf.Max(timer - Time.deltaTime, 0f);
+            if (!inWave)
             {
-                timer = spawnInterval;
-                return;
+                // Calma (o tramo sin enemigos: la oleada empieza apenas el progreso la permite).
+                if (timer > 0f || director.MaxEnemies == 0) return;
+                inWave = true;
+                WaveSize = waveRemaining = director.MaxEnemies;
             }
 
-            timer -= Time.deltaTime;
-            if (timer > 0f) return;
-            if (TrySpawn(center)) timer = spawnInterval;
+            if (waveRemaining > 0)
+            {
+                // Sin presupuesto o sin lugar libre espera, con la nave reservada, y reintenta el frame siguiente.
+                if (timer <= 0f && director.CanAfford(ThreatKind.Enemy) && TrySpawn(center))
+                {
+                    waveRemaining--;
+                    timer = director.EnemySpawnInterval;
+                    director.ReportActive(ThreatKind.Enemy, active.Count);
+                }
+            }
+            else if (active.Count == 0)
+            {
+                inWave = false;
+                timer = director.WaveBreak;
+            }
+
+            director.ReportReserved(ThreatKind.Enemy, waveRemaining);
         }
 
         // Saca de la lista las que volvieron al pool (destruidas o por distancia). El orden no importa: swap-remove.
@@ -159,7 +184,7 @@ namespace NavesShooter.Enemies
                 Vector2 toPlayer = (Vector2)player.position - position;
                 float angle = Mathf.Atan2(-toPlayer.x, toPlayer.y) * Mathf.Rad2Deg;
                 EnemyShip enemy = pool.Get(position, Quaternion.Euler(0f, 0f, angle));
-                enemy.Launch(pool, projectilePool, player, gameManager);
+                enemy.Launch(pool, projectilePool, player, gameManager, director.EnemyFireRate, director.EnemyInaccuracy);
                 active.Add(enemy);
                 return true;
             }

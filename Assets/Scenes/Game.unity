@@ -3812,6 +3812,71 @@ RectTransform:
   m_AnchoredPosition: {x: 0, y: 0}
   m_SizeDelta: {x: 0, y: 0}
   m_Pivot: {x: 0.5, y: 0.5}
+--- !u!1 &777824600
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 777824603}
+  - component: {fileID: 777824602}
+  - component: {fileID: 777824601}
+  m_Layer: 0
+  m_Name: DifficultyDirector
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!114 &777824601
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 777824600}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: eefbc0be47948cb4cb14a639b1dfe8e7, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::NavesShooter.UI.DifficultyDebugOverlay
+  director: {fileID: 777824602}
+  enemySpawner: {fileID: 1143429131}
+  largeCometField: {fileID: 1372197001}
+  toggleKey: 96
+  visible: 0
+--- !u!114 &777824602
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 777824600}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: f957295a85db5824ca5eb4774ec13bdd, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::NavesShooter.Core.DifficultyDirector
+  levelManager: {fileID: 1690848701}
+  smallCometCost: 1
+  enemyCost: 3
+--- !u!4 &777824603
+Transform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 777824600}
+  serializedVersion: 2
+  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
+  m_LocalPosition: {x: 0, y: 0, z: 0}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children: []
+  m_Father: {fileID: 0}
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
 --- !u!1 &853163809
 GameObject:
   m_ObjectHideFlags: 0
@@ -3845,7 +3910,8 @@ MonoBehaviour:
   targetCamera: {fileID: 661843592}
   player: {fileID: 422487598}
   gameManager: {fileID: 1447734612}
-  targetCount: 10
+  director: {fileID: 777824602}
+  initialPoolSize: 10
   spawnRadius: 12.5
   spawnRingWidth: 3
   despawnDistance: 22
@@ -4584,8 +4650,7 @@ MonoBehaviour:
   player: {fileID: 422487598}
   levelManager: {fileID: 1690848701}
   gameManager: {fileID: 1447734612}
-  maxEnemies: 3
-  spawnInterval: 6
+  director: {fileID: 777824602}
   initialDelay: 4
   spawnRadius: 12.5
   spawnRingWidth: 3
@@ -4596,6 +4661,7 @@ MonoBehaviour:
   blockingLayers:
     serializedVersion: 2
     m_Bits: 7168
+  initialPoolSize: 3
   projectilePoolSize: 24
 --- !u!4 &1143429132
 Transform:
@@ -4918,6 +4984,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::NavesShooter.Asteroids.LargeCometField
   levelManager: {fileID: 1690848701}
+  director: {fileID: 777824602}
   cometPrefab: {fileID: 7776660665151924139, guid: aa94649203ce0fc4ca14fd4a15b4bb8d, type: 3}
   targetCamera: {fileID: 661843592}
   halfWidth: 20
@@ -6252,3 +6319,4 @@ SceneRoots:
   - {fileID: 1690848702}
   - {fileID: 1372197002}
   - {fileID: 1143429132}
+  - {fileID: 777824603}
