@@ -28,7 +28,8 @@ namespace NavesShooter.Enemies
     // menos de `tooClose`, se abre en diagonal alejándose y vuelve a entrar). Esquiva los obstáculos inmóviles (cometas
     // grandes, casco de la nave nodriza) con un circle cast hacia adelante; los cuerpos dinámicos (cometas chicos) no
     // cuentan como obstáculo. Vida en Health: parpadea al recibir un impacto y al morir vuelve al pool y avisa por
-    // `Destroyed` (explosión, puntaje). Sale del pool con `Launch`, que resetea todo su estado.
+    // `Destroyed` (explosión, puntaje). Sale del pool con `Launch`, que resetea todo su estado y le da los valores de
+    // balance (sección Enemies del GameConfig, la pasa el spawner).
     [RequireComponent(typeof(Rigidbody2D), typeof(PolygonCollider2D), typeof(LineRenderer))]
     [RequireComponent(typeof(Health))]
     public class EnemyShip : MonoBehaviour
@@ -38,44 +39,14 @@ namespace NavesShooter.Enemies
         // Se invoca después de devolver la nave al pool.
         public static event Action<EnemyDestroyed> Destroyed;
 
-        [Header("Movimiento")]
-        [SerializeField, Tooltip("Velocidad al acercarse (unidades/s). Menor que la del jugador, para que pueda escaparle.")]
-        private float approachSpeed = 3.2f;
-        [SerializeField, Tooltip("Velocidad mientras ataca.")] private float attackSpeed = 1.8f;
-        [SerializeField, Tooltip("Velocidad al alejarse para reposicionarse.")] private float repositionSpeed = 4.2f;
-        [SerializeField, Tooltip("Unidades/s² al cambiar de velocidad.")] private float linearAcceleration = 4f;
-        [SerializeField, Tooltip("Grados por segundo.")] private float maxTurnSpeed = 110f;
-        [SerializeField, Tooltip("Grados/s² al acelerar o frenar el giro.")] private float angularAcceleration = 400f;
-
-        [Header("Distancias al jugador")]
-        [SerializeField, Min(0f), Tooltip("Más cerca que esto empieza a atacar.")] private float attackRange = 7.5f;
-        [SerializeField, Min(0f), Tooltip("Atacando, más lejos que esto vuelve a acercarse.")] private float disengageRange = 10f;
-        [SerializeField, Min(0f), Tooltip("Más cerca que esto se aleja para reposicionarse.")] private float tooClose = 3f;
-        [SerializeField, Min(0f), Tooltip("Reposicionándose, a esta distancia vuelve a acercarse.")] private float repositionDistance = 8f;
-        [SerializeField, Min(0f), Tooltip("Segundos máximos reposicionándose.")] private float repositionMaxTime = 2.5f;
-        [SerializeField, Range(0f, 90f), Tooltip("Desvío de la huida respecto de alejarse en línea recta del jugador (grados).")]
-        private float repositionAngle = 50f;
-
         [Header("Disparo")]
-        [SerializeField, Min(1), Tooltip("Disparos por ráfaga.")] private int burstCount = 3;
-        [SerializeField, Min(0.01f), Tooltip("Segundos entre disparos de una ráfaga.")] private float burstInterval = 0.15f;
-        [SerializeField, Min(0f), Tooltip("Segundos entre ráfagas.")] private float burstCooldown = 2.2f;
-        [SerializeField, Min(0f), Tooltip("Segundos desde que empieza a atacar hasta la primera ráfaga.")] private float firstBurstDelay = 0.8f;
-        [SerializeField, Range(0f, 90f), Tooltip("Solo empieza una ráfaga si el jugador está a menos de este ángulo del frente.")]
-        private float fireCone = 20f;
-        [SerializeField, Range(0f, 30f), Tooltip("Desvío al azar de cada disparo, en grados a cada lado.")] private float inaccuracy = 6f;
-        [SerializeField, Tooltip("Velocidad del proyectil relativa a la nave (unidades/s).")] private float projectileSpeed = 6f;
-        [SerializeField, Min(0.05f)] private float projectileLifetime = 2.5f;
         [SerializeField, Tooltip("Punto de salida en coordenadas locales (la punta).")] private Vector2 muzzleOffset = new Vector2(0f, 0.55f);
 
         [Header("Esquive")]
         [SerializeField, Tooltip("Layers con obstáculos a esquivar. Solo cuentan los cuerpos que no son dinámicos.")]
         private LayerMask avoidLayers;
-        [SerializeField, Min(0f), Tooltip("Largo del circle cast hacia adelante.")] private float lookAhead = 4f;
-        [SerializeField, Min(0.01f), Tooltip("Radio del circle cast (un poco más que la nave).")] private float avoidRadius = 0.6f;
 
         [Header("Daño")]
-        [SerializeField, Min(0), Tooltip("Puntos al destruirla.")] private int points = 250;
         [SerializeField, Min(0f), Tooltip("Segundos de parpadeo al recibir un impacto.")] private float flashDuration = 0.25f;
         [SerializeField, Min(0.1f), Tooltip("Parpadeos por segundo.")] private float blinkRate = 20f;
 
@@ -96,6 +67,7 @@ namespace NavesShooter.Enemies
         private Rigidbody2D body;
         private Health health;
         private LineRenderer outline;
+        private GameConfig.EnemySettings settings;
         private ObjectPool<EnemyShip> pool;
         private ObjectPool<Projectile> projectiles;
         private Transform target;
@@ -144,22 +116,24 @@ namespace NavesShooter.Enemies
         // Activación desde el pool, después de pool.Get (que ya la ubicó mirando hacia el jugador). Agresividad según la
         // dificultad: `fireRate` divide la espera entre ráfagas y `inaccuracyMultiplier` escala el desvío de cada disparo.
         public void Launch(ObjectPool<EnemyShip> owner, ObjectPool<Projectile> projectilePool, Transform player, GameManager manager,
-            float fireRate = 1f, float inaccuracyMultiplier = 1f)
+            GameConfig.EnemySettings balance, float fireRate = 1f, float inaccuracyMultiplier = 1f)
         {
             pool = owner;
+            settings = balance;
             projectiles = projectilePool;
             target = player;
             gameManager = manager;
             fireRateScale = Mathf.Max(fireRate, 0.05f);
             inaccuracyScale = Mathf.Max(inaccuracyMultiplier, 0f);
 
+            health.Configure(settings.maxHealth, 0f);
             health.Restore();
             CurrentState = State.Approach;
             stateTime = 0f;
-            speed = approachSpeed;
+            speed = settings.approachSpeed;
             angularSpeed = 0f;
             burstLeft = 0;
-            fireTimer = firstBurstDelay;
+            fireTimer = settings.firstBurstDelay;
             flashTime = 0f;
             outline.enabled = true;
 
@@ -183,7 +157,7 @@ namespace NavesShooter.Enemies
             Vector2 position = body.position;
             Vector2 forward = Forward(body.rotation);
             Vector2 desired = forward;
-            float targetSpeed = approachSpeed;
+            float targetSpeed = settings.approachSpeed;
 
             // Sin jugador (muerto) sigue de largo.
             if (HasTarget)
@@ -193,15 +167,15 @@ namespace NavesShooter.Enemies
                 switch (CurrentState)
                 {
                     case State.Approach: desired = toTarget; break;
-                    case State.Attack: desired = toTarget; targetSpeed = attackSpeed; break;
-                    case State.Reposition: desired = repositionDirection; targetSpeed = repositionSpeed; break;
+                    case State.Attack: desired = toTarget; targetSpeed = settings.attackSpeed; break;
+                    case State.Reposition: desired = repositionDirection; targetSpeed = settings.repositionSpeed; break;
                 }
             }
 
             desired = Avoid(position, forward, desired, ref targetSpeed);
 
-            speed = Mathf.MoveTowards(speed, targetSpeed, linearAcceleration * Time.fixedDeltaTime);
-            angularSpeed = Mathf.MoveTowards(angularSpeed, TurnSpeedTowards(desired), angularAcceleration * Time.fixedDeltaTime);
+            speed = Mathf.MoveTowards(speed, targetSpeed, settings.linearAcceleration * Time.fixedDeltaTime);
+            angularSpeed = Mathf.MoveTowards(angularSpeed, TurnSpeedTowards(desired), settings.angularAcceleration * Time.fixedDeltaTime);
             body.angularVelocity = angularSpeed;
             body.linearVelocity = forward * speed;
         }
@@ -216,15 +190,15 @@ namespace NavesShooter.Enemies
             switch (CurrentState)
             {
                 case State.Approach:
-                    if (distance < tooClose) EnterReposition(toTarget, forward);
-                    else if (distance < attackRange) Enter(State.Attack);
+                    if (distance < settings.tooClose) EnterReposition(toTarget, forward);
+                    else if (distance < settings.attackRange) Enter(State.Attack);
                     break;
                 case State.Attack:
-                    if (distance < tooClose) EnterReposition(toTarget, forward);
-                    else if (distance > disengageRange) Enter(State.Approach);
+                    if (distance < settings.tooClose) EnterReposition(toTarget, forward);
+                    else if (distance > settings.disengageRange) Enter(State.Approach);
                     break;
                 case State.Reposition:
-                    if (distance > repositionDistance || stateTime > repositionMaxTime) Enter(State.Approach);
+                    if (distance > settings.repositionDistance || stateTime > settings.repositionMaxTime) Enter(State.Approach);
                     break;
             }
         }
@@ -235,7 +209,7 @@ namespace NavesShooter.Enemies
             stateTime = 0f;
             if (state != State.Attack) return;
             burstLeft = 0;
-            fireTimer = Mathf.Max(fireTimer, firstBurstDelay);
+            fireTimer = Mathf.Max(fireTimer, settings.firstBurstDelay);
         }
 
         // Huye en diagonal: alejarse del jugador desviado `repositionAngle`, hacia el lado más cercano a su rumbo
@@ -243,8 +217,8 @@ namespace NavesShooter.Enemies
         private void EnterReposition(Vector2 toTarget, Vector2 forward)
         {
             Vector2 away = -toTarget.normalized;
-            Vector2 left = Rotate(away, repositionAngle);
-            Vector2 right = Rotate(away, -repositionAngle);
+            Vector2 left = Rotate(away, settings.repositionAngle);
+            Vector2 right = Rotate(away, -settings.repositionAngle);
             repositionDirection = Vector2.Dot(left, forward) >= Vector2.Dot(right, forward) ? left : right;
             Enter(State.Reposition);
         }
@@ -252,10 +226,10 @@ namespace NavesShooter.Enemies
         // Si hay un obstáculo inmóvil adelante, gira hacia el lado contrario a su centro y frena; cuanto más cerca, más fuerte.
         private Vector2 Avoid(Vector2 position, Vector2 forward, Vector2 desired, ref float targetSpeed)
         {
-            if (avoidLayers.value == 0 || lookAhead <= 0f) return desired;
+            if (avoidLayers.value == 0 || settings.lookAhead <= 0f) return desired;
 
             var filter = new ContactFilter2D { useLayerMask = true, layerMask = avoidLayers, useTriggers = false };
-            int count = Physics2D.CircleCast(position, avoidRadius, forward, filter, Hits, lookAhead);
+            int count = Physics2D.CircleCast(position, settings.avoidRadius, forward, filter, Hits, settings.lookAhead);
 
             float nearest = float.MaxValue;
             Collider2D obstacle = null;
@@ -274,7 +248,7 @@ namespace NavesShooter.Enemies
             bool obstacleOnLeft = forward.x * toObstacle.y - forward.y * toObstacle.x > 0f;
             Vector2 sideways = obstacleOnLeft ? new Vector2(forward.y, -forward.x) : new Vector2(-forward.y, forward.x);
 
-            float urgency = 1f - nearest / lookAhead;
+            float urgency = 1f - nearest / settings.lookAhead;
             targetSpeed *= Mathf.Lerp(1f, 0.5f, urgency);
             return Vector2.Lerp(desired.normalized, sideways, 0.5f + 0.5f * urgency);
         }
@@ -286,7 +260,8 @@ namespace NavesShooter.Enemies
             float targetAngle = Mathf.Atan2(-direction.x, direction.y) * Mathf.Rad2Deg;
             float delta = Mathf.DeltaAngle(body.rotation, targetAngle);
             float distance = Mathf.Abs(delta);
-            float turnSpeed = Mathf.Min(maxTurnSpeed, Mathf.Sqrt(2f * angularAcceleration * distance), distance / Time.fixedDeltaTime);
+            // Mathf.Min anidado: la sobrecarga de tres argumentos es `params` y aloca un array en cada llamada.
+            float turnSpeed = Mathf.Min(Mathf.Min(settings.maxTurnSpeed, Mathf.Sqrt(2f * settings.angularAcceleration * distance)), distance / Time.fixedDeltaTime);
             return Mathf.Sign(delta) * turnSpeed;
         }
 
@@ -308,30 +283,30 @@ namespace NavesShooter.Enemies
             {
                 // Espera a tener al jugador delante para empezar la ráfaga.
                 Vector2 toTarget = target.position - transform.position;
-                if (Vector2.Angle(transform.up, toTarget) > fireCone)
+                if (Vector2.Angle(transform.up, toTarget) > settings.fireCone)
                 {
                     fireTimer = 0f;
                     return;
                 }
-                burstLeft = burstCount;
+                burstLeft = settings.burstCount;
             }
 
             Fire();
             burstLeft--;
-            fireTimer += burstLeft > 0 ? burstInterval : burstCooldown / fireRateScale;
+            fireTimer += burstLeft > 0 ? settings.burstInterval : settings.burstCooldown / fireRateScale;
         }
 
         private void Fire()
         {
             // Pose interpolada del transform (la que se ve), así el proyectil sale de la punta dibujada.
-            float spread = inaccuracy * inaccuracyScale;
+            float spread = settings.inaccuracy * inaccuracyScale;
             Vector2 direction = Rotate(transform.up, Random.Range(-spread, spread));
             Vector2 origin = transform.TransformPoint(muzzleOffset);
-            Vector2 velocity = direction * projectileSpeed + body.linearVelocity;
+            Vector2 velocity = direction * settings.projectileSpeed + body.linearVelocity;
 
             float angle = Mathf.Atan2(-velocity.x, velocity.y) * Mathf.Rad2Deg;
             Projectile projectile = projectiles.Get(origin, Quaternion.Euler(0f, 0f, angle));
-            projectile.Launch(projectiles, velocity, projectileLifetime);
+            projectile.Launch(projectiles, velocity, settings.projectileLifetime);
         }
 
         private void OnDamaged(Health _)
@@ -339,9 +314,13 @@ namespace NavesShooter.Enemies
             if (!health.IsDead) flashTime = flashDuration;
         }
 
-        private void OnDied(Health _)
+        private void OnDied(Health _) => Explode();
+
+        // Vuelve al pool y avisa por `Destroyed` (explosión, puntaje). También sin daño, al terminar el nivel.
+        public void Explode()
         {
-            var info = new EnemyDestroyed(body.position, body.linearVelocity, points);
+            if (!gameObject.activeSelf) return;
+            var info = new EnemyDestroyed(body.position, body.linearVelocity, settings.points);
             Despawn();
             Destroyed?.Invoke(info);
         }
@@ -387,12 +366,13 @@ namespace NavesShooter.Enemies
 
         private void OnDrawGizmosSelected()
         {
+            if (settings == null) return;
             Gizmos.color = Color.red;
-            Gizmos.DrawWireSphere(transform.position, attackRange);
+            Gizmos.DrawWireSphere(transform.position, settings.attackRange);
             Gizmos.color = new Color(1f, 0.5f, 0f);
-            Gizmos.DrawWireSphere(transform.position, tooClose);
+            Gizmos.DrawWireSphere(transform.position, settings.tooClose);
             Gizmos.color = Color.yellow;
-            Gizmos.DrawLine(transform.position, transform.position + transform.up * lookAhead);
+            Gizmos.DrawLine(transform.position, transform.position + transform.up * settings.lookAhead);
         }
     }
 }

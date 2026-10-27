@@ -8,8 +8,8 @@ namespace NavesShooter.Level
     // Nave nodriza: destino del nivel (B). Estática. Casco hexagonal alargado con detalles internos, todo en contorno
     // neón verde (un LineRenderer hijo por trazo, generados por código), y delante de la proa (+Y local) una zona de
     // acople circular que pulsa. El casco es sólido (PolygonCollider2D); la zona de acople es un trigger que solo
-    // registra `dockLayers`: cuando el centro de la nave del jugador entra en el círculo se dispara LevelCompleted.
-    // Se registra en el radar como objetivo.
+    // registra `dockLayers`: cuando el centro de la nave del jugador entra en el círculo se dispara Docked.
+    // Se registra en el radar como objetivo. Durante el salto la zona de acople se oculta (`DockVisible`).
     [RequireComponent(typeof(PolygonCollider2D), typeof(CircleCollider2D))]
     public class Mothership : MonoBehaviour
     {
@@ -51,9 +51,10 @@ namespace NavesShooter.Level
             public bool detail;
         }
 
-        public event Action LevelCompleted;
+        public event Action Docked;
 
         private readonly List<LineRenderer> dockLines = new List<LineRenderer>();
+        private bool dockVisible = true;
 
         // Centro de la zona de acople en coordenadas locales (sin `scale`, que ya lo incluye).
         private Vector2 LocalDockCenter => new Vector2(0f, (HullLength + dockGap + dockRadius) * scale);
@@ -63,6 +64,17 @@ namespace NavesShooter.Level
 
         // Radio del círculo centrado en el transform que contiene el casco y las toberas.
         public float HullRadius => NozzleEnd * scale;
+
+        // Círculo y flecha de la zona de acople. Se ocultan con la nave ya acoplada.
+        public bool DockVisible
+        {
+            get => dockVisible;
+            set
+            {
+                dockVisible = value;
+                foreach (LineRenderer line in dockLines) line.enabled = value;
+            }
+        }
 
         private void Awake()
         {
@@ -76,7 +88,7 @@ namespace NavesShooter.Level
 
         private void Update()
         {
-            if (dockLines.Count == 0) return;
+            if (dockLines.Count == 0 || !dockVisible) return;
             float pulse = 0.5f + 0.5f * Mathf.Cos(Time.time * dockPulseRate * 2f * Mathf.PI);
             Color color = neonColor;
             color.a = Mathf.Lerp(dockMinAlpha, 1f, pulse);
@@ -104,7 +116,7 @@ namespace NavesShooter.Level
             Vector2 position = other.attachedRigidbody != null ? other.attachedRigidbody.position : (Vector2)other.transform.position;
             float radius = DockRadius;
             if ((position - DockPosition).sqrMagnitude > radius * radius) return;
-            LevelCompleted?.Invoke();
+            Docked?.Invoke();
         }
 
         // Genera los trazos, los colliders y los LineRenderers hijos (los crea si faltan). Se llama en Awake; desde el

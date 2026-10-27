@@ -253,33 +253,10 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 00de35f24d46a9d4894bb46fe9046f2a, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::NavesShooter.Enemies.EnemyShip
-  approachSpeed: 3.2
-  attackSpeed: 1.8
-  repositionSpeed: 4.2
-  linearAcceleration: 4
-  maxTurnSpeed: 110
-  angularAcceleration: 400
-  attackRange: 7.5
-  disengageRange: 10
-  tooClose: 3
-  repositionDistance: 8
-  repositionMaxTime: 2.5
-  repositionAngle: 50
-  burstCount: 3
-  burstInterval: 0.15
-  burstCooldown: 2.2
-  firstBurstDelay: 0.8
-  fireCone: 20
-  inaccuracy: 6
-  projectileSpeed: 6
-  projectileLifetime: 2.5
   muzzleOffset: {x: 0, y: 0.55}
   avoidLayers:
     serializedVersion: 2
     m_Bits: 3072
-  lookAhead: 4
-  avoidRadius: 0.6
-  points: 250
   flashDuration: 0.25
   blinkRate: 20
   shape:

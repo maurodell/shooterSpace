@@ -3,11 +3,10 @@ using NavesShooter.Core;
 using NavesShooter.Enemies;
 using TMPro;
 using UnityEngine;
-using UnityEngine.Serialization;
 
 namespace NavesShooter.UI
 {
-    // Puntaje de la partida: suma `points` por cada cometa chico destruido (los grandes son indestructibles) y los
+    // Puntaje de la partida: suma los puntos de cada cometa chico destruido (GameConfig, sección Asteroids) (los grandes son indestructibles) y los
     // puntos de cada nave enemiga destruida (EnemyDestroyed.Points).
     // Solo cuenta en Playing: un proyectil que siga en vuelo tras la muerte no suma. Vuelve a 0 al reiniciar.
     public class ScoreCounter : MonoBehaviour
@@ -15,8 +14,7 @@ namespace NavesShooter.UI
         [SerializeField] private GameManager gameManager;
         [SerializeField] private TMP_Text label;
 
-        [SerializeField, Min(0), FormerlySerializedAs("smallPoints"), Tooltip("Puntos por cometa chico destruido.")]
-        private int points = 100;
+        [SerializeField, Tooltip("Puntos por cometa chico (sección Asteroids).")] private GameConfig config;
 
         public int Score { get; private set; }
 
@@ -36,7 +34,7 @@ namespace NavesShooter.UI
             if (gameManager != null) gameManager.Restarted -= ResetScore;
         }
 
-        private void OnAsteroidDestroyed(AsteroidDestroyed destroyed) => Add(points);
+        private void OnAsteroidDestroyed(AsteroidDestroyed destroyed) => Add(config != null ? config.Asteroids.points : 0);
 
         private void OnEnemyDestroyed(EnemyDestroyed destroyed) => Add(destroyed.Points);
 

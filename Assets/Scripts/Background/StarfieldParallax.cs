@@ -7,6 +7,9 @@ namespace NavesShooter.Background
     // Fondo de estrellas infinito con parallax. Cada capa es una sola mesh (un quad por estrella).
     // Cuando una estrella sale del área visible + margen se reubica del lado opuesto: no se crean ni
     // destruyen objetos, y la mesh solo se reescribe en los frames en que alguna estrella se recicla.
+    // Hiperespacio (`Warp` 0–1, hacia `WarpDirection`): las estrellas se estiran en líneas a lo largo de la dirección
+    // del viaje y corren en sentido contrario, más rápido y más largas cuanto más cercana la capa. Usa tiempo sin
+    // escalar: sigue viajando con el juego congelado (resumen del nivel). Mientras dura, la mesh se reescribe cada frame.
     // Orden de ejecución alto: su LateUpdate corre después del de la cámara (CameraFollow).
     [DefaultExecutionOrder(1000)]
     public class StarfieldParallax : MonoBehaviour
@@ -54,8 +57,22 @@ namespace NavesShooter.Background
             new Layer { name = "Near", starCount = 30,  sizeRange = new Vector2(0.06f, 0.12f),  brightnessRange = new Vector2(0.6f, 1f),    parallax = 0.9f },
         };
 
+        [Header("Hiperespacio")]
+        [SerializeField, Min(0f), Tooltip("Velocidad de las estrellas de la capa más cercana con Warp = 1 (unidades/s).")]
+        private float warpSpeed = 70f;
+        [SerializeField, Min(0f), Tooltip("Medio largo de las líneas de la capa más cercana con Warp = 1 (unidades).")]
+        private float warpStretch = 6f;
+        [SerializeField, Range(0f, 1f), Tooltip("Velocidad y largo de la capa más lejana respecto de la más cercana.")]
+        private float farLayerWarpFactor = 0.3f;
+
         private LayerState[] states;
         private Vector2 halfExtents;
+        private bool warpApplied;
+
+        // Intensidad del hiperespacio: 0 = estrellas normales.
+        public float Warp { get; set; }
+        // Dirección del viaje (las estrellas corren al revés). Se normaliza al usarla.
+        public Vector2 WarpDirection { get; set; } = Vector2.up;
 
         private void Start()
         {
@@ -83,16 +100,33 @@ namespace NavesShooter.Background
 
         private void LateUpdate()
         {
-            // Cambio de resolución u orthographicSize: redistribuir estrellas en el área nueva.
-            if (CurrentHalfExtents() != halfExtents) Rebuild();
+            // Cambio de resolución u orthographicSize: redistribuir estrellas en el área nueva. Solo si el área tiene que
+            // crecer: con un zoom hacia adentro (el del salto) las mismas estrellas alcanzan, y redistribuirlas cada
+            // frame del zoom las dejaría quietas respecto de la cámara.
+            Vector2 needed = CurrentHalfExtents();
+            if (needed.x > halfExtents.x || needed.y > halfExtents.y) Rebuild();
+
+            float warp = Mathf.Clamp01(Warp);
+            bool warping = warp > 0f;
+            // Un frame más al apagarlo, para devolver las líneas a cuadraditos.
+            bool rewriteAll = warping || warpApplied;
+            warpApplied = warping;
+            Vector2 axis = WarpDirection.sqrMagnitude > 0.0001f ? WarpDirection.normalized : Vector2.up;
+            float dt = Time.unscaledDeltaTime;
 
             Vector2 cam = targetCamera.transform.position;
             Vector2 area = halfExtents * 2f;
             float z = transform.position.z;
 
-            foreach (var s in states)
+            for (int layer = 0; layer < states.Length; layer++)
             {
+                LayerState s = states[layer];
                 float p = s.config.parallax;
+                // Capa más cercana = factor 1.
+                float depth = states.Length > 1 ? (float)layer / (states.Length - 1) : 1f;
+                float factor = Mathf.Lerp(farLayerWarpFactor, 1f, depth);
+                Vector2 step = -axis * (warpSpeed * warp * warp * factor * dt);
+                float stretch = warpStretch * warp * Mathf.Sqrt(warp) * factor;
                 Vector2 layerPos = cam * (1f - p);
                 s.transform.position = new Vector3(layerPos.x, layerPos.y, z);
 
@@ -101,14 +135,14 @@ namespace NavesShooter.Background
                 bool dirty = false;
                 for (int i = 0; i < s.positions.Length; i++)
                 {
-                    Vector2 local = s.positions[i];
+                    Vector2 local = s.positions[i] + step;
                     Vector2 rel = local - shift;
                     bool moved = Wrap(ref local.x, rel.x, halfExtents.x, area.x);
                     moved |= Wrap(ref local.y, rel.y, halfExtents.y, area.y);
-                    if (!moved) continue;
+                    if (!moved && !rewriteAll) continue;
 
                     s.positions[i] = local;
-                    WriteQuad(s, i);
+                    WriteQuad(s, i, axis, s.halfSizes[i] + stretch);
                     dirty = true;
                 }
 
@@ -215,7 +249,7 @@ namespace NavesShooter.Background
                 triangles[tri + 4] = v + 2;
                 triangles[tri + 5] = v + 3;
 
-                WriteQuad(s, i);
+                WriteQuad(s, i, Vector2.up, s.halfSizes[i]);
             }
 
             s.mesh.Clear();
@@ -226,15 +260,19 @@ namespace NavesShooter.Background
             s.mesh.RecalculateBounds();
         }
 
-        private static void WriteQuad(LayerState s, int i)
+        // Rectángulo centrado en la estrella: medio ancho = su tamaño, medio largo `halfLength` a lo largo de `axis`.
+        // Con axis = arriba y halfLength = medio tamaño es el cuadradito de siempre.
+        private static void WriteQuad(LayerState s, int i, Vector2 axis, float halfLength)
         {
             Vector2 p = s.positions[i];
             float h = s.halfSizes[i];
+            Vector2 across = new Vector2(axis.y, -axis.x) * h;
+            Vector2 along = axis * halfLength;
             int v = i * 4;
-            s.vertices[v] = new Vector3(p.x - h, p.y - h, 0f);
-            s.vertices[v + 1] = new Vector3(p.x - h, p.y + h, 0f);
-            s.vertices[v + 2] = new Vector3(p.x + h, p.y + h, 0f);
-            s.vertices[v + 3] = new Vector3(p.x + h, p.y - h, 0f);
+            s.vertices[v] = p - across - along;
+            s.vertices[v + 1] = p - across + along;
+            s.vertices[v + 2] = p + across + along;
+            s.vertices[v + 3] = p + across - along;
         }
 
         private static float Next(System.Random rnd)

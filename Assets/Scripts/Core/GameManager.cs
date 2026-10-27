@@ -3,10 +3,11 @@ using UnityEngine;
 
 namespace NavesShooter.Core
 {
-    public enum GameState { Playing, Paused, GameOver, LevelCompleted }
+    public enum GameState { Playing, Paused, GameOver, Jumping, LevelCompleted }
 
     // Ciclo de la partida: Playing → GameOver (la nave murió) → Playing (reintento, sin recargar la escena).
-    // Playing → LevelCompleted (la nave llegó a la zona de acople; el juego queda congelado) → Playing (reinicio).
+    // Playing → Jumping (la nave llegó a la zona de acople: secuencia del salto, con el tiempo corriendo y sin control
+    // del jugador) → LevelCompleted (resumen; el juego queda congelado) → Playing (siguiente nivel, vía LevelManager).
     // Playing ↔ Paused: se pausa sola al perder el foco (barra de notificaciones, Centro de Control, llamada, app en
     // segundo plano) con Time.timeScale = 0. Así Android e iOS se comportan igual: iOS congela el juego mientras está
     // inactivo, pero Android lo deja correr detrás de la barra de notificaciones; en los dos, al volver queda en pausa.
@@ -29,10 +30,18 @@ namespace NavesShooter.Core
             SetState(GameState.GameOver);
         }
 
-        // Llegó a la nave nodriza: se congela el gameplay hasta el reinicio.
-        public void CompleteLevel()
+        // Llegó a la nave nodriza: empieza la secuencia del salto. El tiempo sigue corriendo, pero todo lo que solo
+        // actúa en Playing (spawners, disparo, puntaje, daño a la nave) se detiene.
+        public void BeginJump()
         {
             if (State != GameState.Playing) return;
+            SetState(GameState.Jumping);
+        }
+
+        // Terminó la secuencia del salto: se congela el gameplay hasta el reinicio (siguiente nivel).
+        public void CompleteLevel()
+        {
+            if (State != GameState.Jumping) return;
             Time.timeScale = 0f;
             SetState(GameState.LevelCompleted);
         }

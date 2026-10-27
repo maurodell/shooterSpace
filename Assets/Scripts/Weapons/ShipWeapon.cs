@@ -15,11 +15,9 @@ namespace NavesShooter.Weapons
         [SerializeField] private Projectile projectilePrefab;
         [SerializeField, Tooltip("Al reiniciar la partida, los proyectiles en vuelo vuelven al pool.")]
         private GameManager gameManager;
+        [SerializeField, Tooltip("Cadencia, velocidad y vida del proyectil (sección Weapon).")] private GameConfig config;
 
         [Header("Disparo")]
-        [SerializeField, Min(0.1f), Tooltip("Disparos por segundo.")] private float fireRate = 8f;
-        [SerializeField, Tooltip("Velocidad del proyectil relativa a la nave (unidades/s).")] private float projectileSpeed = 14f;
-        [SerializeField, Min(0.05f), Tooltip("Segundos hasta que el proyectil vuelve al pool si no choca.")] private float projectileLifetime = 1.2f;
         [SerializeField, Tooltip("Punto de salida en coordenadas locales de la nave (la punta).")]
         private Vector2 muzzleOffset = new Vector2(0f, 0.45f);
         [SerializeField, Tooltip("Dispara continuamente sin necesidad de mantener el botón.")] private bool autoFire;
@@ -40,9 +38,9 @@ namespace NavesShooter.Weapons
         private void Awake()
         {
             body = GetComponent<Rigidbody2D>();
-            if (projectilePrefab == null)
+            if (projectilePrefab == null || config == null)
             {
-                Debug.LogError($"{nameof(ShipWeapon)}: falta asignar el prefab del proyectil.", this);
+                Debug.LogError($"{nameof(ShipWeapon)}: faltan referencias (prefab del proyectil o GameConfig).", this);
                 enabled = false;
                 return;
             }
@@ -75,7 +73,7 @@ namespace NavesShooter.Weapons
 
             Fire();
             // Sumar en vez de asignar conserva la cadencia exacta aunque el intervalo no sea múltiplo del frame.
-            cooldown += 1f / fireRate;
+            cooldown += 1f / config.Weapon.fireRate;
         }
 
         private void Fire()
@@ -83,11 +81,12 @@ namespace NavesShooter.Weapons
             // Pose interpolada del transform (la que se ve), así el proyectil sale de la punta dibujada.
             Vector2 forward = transform.up;
             Vector2 origin = transform.TransformPoint(muzzleOffset);
-            Vector2 velocity = forward * projectileSpeed + body.linearVelocity;
+            GameConfig.WeaponSettings weapon = config.Weapon;
+            Vector2 velocity = forward * weapon.projectileSpeed + body.linearVelocity;
 
             float angle = Mathf.Atan2(-velocity.x, velocity.y) * Mathf.Rad2Deg;
             Projectile projectile = pool.Get(origin, Quaternion.Euler(0f, 0f, angle));
-            projectile.Launch(pool, velocity, projectileLifetime);
+            projectile.Launch(pool, velocity, weapon.projectileLifetime);
         }
 
         private void OnDrawGizmosSelected()

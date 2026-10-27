@@ -23,6 +23,9 @@ namespace NavesShooter.UI
         private readonly StringBuilder text = new StringBuilder(512);
         private GUIStyle style;
 
+        // Sin GUILayout (solo GUI.Box): evita las allocations del pase de layout de IMGUI en cada frame.
+        private void Awake() => useGUILayout = false;
+
         private void Update()
         {
             Keyboard keyboard = Keyboard.current;
@@ -43,7 +46,7 @@ namespace NavesShooter.UI
 
             text.Clear();
             text.Append("<b>DIFICULTAD</b>  (").Append(toggleKey).Append(")\n");
-            text.Append("Progreso: ").Append(Mathf.RoundToInt(director.Progress * 100f)).Append("%\n");
+            text.Append("Progreso: ").Append(Mathf.RoundToInt(director.Progress * 100f)).Append("%  vuelta ").Append(director.Cycle).Append('\n');
 
             int used = director.UsedBudget;
             int reserved = director.ReservedCount(ThreatKind.Enemy) * director.Cost(ThreatKind.Enemy);

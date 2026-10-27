@@ -1,0 +1,94 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 242c9598ee13a254eaaa57e430b6260c, type: 3}
+  m_Name: GameConfig
+  m_EditorClassIdentifier: Assembly-CSharp::NavesShooter.Core.GameConfig
+  ship:
+    idleSpeed: 0.6
+    thrustSpeed: 4
+    linearAcceleration: 6
+    linearDeceleration: 3
+    maxTurnSpeed: 200
+    angularAcceleration: 900
+    angularDeceleration: 1200
+    deadZone: 0.2
+    bankAmount: 0.25
+    autopilotGain: 3
+    maxHealth: 3
+    invulnerabilityOnHit: 1
+    respawnInvulnerability: 2
+    knockbackSpeed: 6
+    knockbackDecay: 10
+  weapon:
+    fireRate: 8
+    projectileSpeed: 14
+    projectileLifetime: 1.2
+  asteroids:
+    radius: 0.4
+    speedRange: {x: 1.8, y: 2.8}
+    spinRange: {x: 50, y: 120}
+    points: 100
+  asteroidSpawner:
+    spawnRadius: 12.5
+    spawnRingWidth: 3
+    despawnDistance: 22
+    aimedFraction: 0.5
+    aimSpread: 3
+  largeComets:
+    radiusRange: {x: 1.2, y: 2.8}
+    minGap: 2.5
+    sparseSpacing: 14
+    denseSpacing: 6.5
+    halfWidth: 20
+    startClearance: 8
+    targetClearance: 5
+    spinRange: {x: 2, y: 7}
+  enemies:
+    approachSpeed: 3.2
+    attackSpeed: 1.8
+    repositionSpeed: 4.2
+    linearAcceleration: 4
+    maxTurnSpeed: 110
+    angularAcceleration: 400
+    attackRange: 7.5
+    disengageRange: 10
+    tooClose: 3
+    repositionDistance: 8
+    repositionMaxTime: 2.5
+    repositionAngle: 50
+    burstCount: 3
+    burstInterval: 0.15
+    burstCooldown: 2.2
+    firstBurstDelay: 0.8
+    fireCone: 20
+    inaccuracy: 6
+    projectileSpeed: 6
+    projectileLifetime: 2.5
+    lookAhead: 4
+    avoidRadius: 0.6
+    maxHealth: 3
+    points: 250
+  enemySpawner:
+    initialDelay: 4
+    spawnRadius: 12.5
+    spawnRingWidth: 3
+    despawnDistance: 30
+    forwardChance: 0.8
+    forwardSpread: 60
+    spawnClearance: 1.5
+  threat:
+    smallCometCost: 1
+    enemyCost: 3
+    countPerCycle: 0.25
+    aggressionPerCycle: 0.15
+    densityPerCycle: 0.08
+    maxCycles: 4

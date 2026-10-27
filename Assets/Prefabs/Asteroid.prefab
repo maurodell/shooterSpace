@@ -247,18 +247,6 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: d40c8ae6a3f333c4a96f804f0412ee96, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::NavesShooter.Asteroids.Asteroid
-  large:
-    radius: 1.1
-    speedRange: {x: 0.6, y: 1.2}
-    spinRange: {x: 10, y: 30}
-  medium:
-    radius: 0.65
-    speedRange: {x: 1.1, y: 1.9}
-    spinRange: {x: 25, y: 60}
-  small:
-    radius: 0.35
-    speedRange: {x: 1.8, y: 2.8}
-    spinRange: {x: 50, y: 120}
   minVertices: 8
   maxVertices: 12
   minRadiusFactor: 0.7

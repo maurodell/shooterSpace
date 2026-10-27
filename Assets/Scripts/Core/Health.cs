@@ -6,7 +6,8 @@ namespace NavesShooter.Core
     // Puntos de vida reutilizables (jugador, enemigos). Un impacto (`TakeHit`, de IDamageable) quita un punto. Tras
     // cada daño que no mata queda `invulnerabilityOnHit` segundos sin recibir más. La invulnerabilidad se mide con
     // Time.time: en pausa (timeScale 0) no corre. Quien la usa resetea con `Restore` al reaparecer o salir del pool.
-    // Los efectos (parpadeo, vibración, explosión) los decide cada dueño escuchando los eventos.
+    // Los efectos (parpadeo, vibración, explosión) los decide cada dueño escuchando los eventos. Un dueño con GameConfig
+    // pisa los valores del Inspector con `Configure`.
     public class Health : MonoBehaviour, IDamageable
     {
         [SerializeField, Min(1)] private int maxHealth = 3;
@@ -44,6 +45,14 @@ namespace NavesShooter.Core
             Damaged?.Invoke(this);
             if (IsDead) Died?.Invoke(this);
             return true;
+        }
+
+        // Valores de balance del dueño (GameConfig). Deja la vida completa.
+        public void Configure(int max, float invulnerability)
+        {
+            maxHealth = Mathf.Max(1, max);
+            invulnerabilityOnHit = Mathf.Max(0f, invulnerability);
+            Current = maxHealth;
         }
 
         // Vida completa y sin invulnerabilidad.

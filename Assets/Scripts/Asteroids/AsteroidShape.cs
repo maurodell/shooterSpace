@@ -7,10 +7,41 @@ namespace NavesShooter.Asteroids
     // salgan siempre iguales a partir de su semilla de forma.
     public static class AsteroidShape
     {
+        // Generador xorshift32 reiniciable con una semilla: los cometas grandes rearman su forma en cada activación sin
+        // alocar un System.Random nuevo (no se puede volver a sembrar). Suficiente para formas, no para estadística.
+        public sealed class ShapeRandom
+        {
+            private uint state;
+
+            public ShapeRandom(int seed) => Reset(seed);
+
+            public void Reset(int seed)
+            {
+                // Mezcla la semilla para que semillas consecutivas no den secuencias parecidas; xorshift no admite estado 0.
+                state = unchecked((uint)seed * 2654435761u) ^ 0x9E3779B9u;
+                if (state == 0) state = 0x9E3779B9u;
+                NextUInt();
+            }
+
+            public uint NextUInt()
+            {
+                state ^= state << 13;
+                state ^= state >> 17;
+                state ^= state << 5;
+                return state;
+            }
+
+            // [0, 1).
+            public float NextFloat() => (NextUInt() >> 8) * (1f / 16777216f);
+
+            // [min, max).
+            public int Next(int min, int max) => max <= min ? min : min + (int)(NextUInt() % (uint)(max - min));
+        }
+
         // Polígono de `minVertices` a `maxVertices` vértices repartidos alrededor del centro, cada uno con un desvío
         // angular y un radio al azar. El desvío nunca llega a media separación, así los vértices no se cruzan de orden
         // y el contorno no se corta a sí mismo.
-        public static void Build(List<Vector2> points, System.Random random, float radius, int minVertices, int maxVertices,
+        public static void Build(List<Vector2> points, ShapeRandom random, float radius, int minVertices, int maxVertices,
             float minRadiusFactor, float angleJitter)
         {
             int count = random.Next(minVertices, Mathf.Max(minVertices, maxVertices) + 1);
@@ -36,5 +67,7 @@ namespace NavesShooter.Asteroids
         }
 
         public static float Range(System.Random random, float min, float max) => min + (float)random.NextDouble() * (max - min);
+
+        public static float Range(ShapeRandom random, float min, float max) => min + random.NextFloat() * (max - min);
     }
 }

@@ -22,24 +22,14 @@ namespace NavesShooter.Asteroids
         [SerializeField, Tooltip("Al reiniciar la partida, todos los asteroides vuelven al pool.")]
         private GameManager gameManager;
         [SerializeField, Tooltip("Cantidad, velocidad y presupuesto de amenaza.")] private DifficultyDirector director;
+        [SerializeField, Tooltip("Cometas (sección Asteroids) y anillo de spawn y trayectorias (sección AsteroidSpawner).")]
+        private GameConfig config;
 
         [Header("Pool")]
         [SerializeField, Min(0), FormerlySerializedAs("targetCount"), Tooltip("Asteroides precreados. El pool crece si se agotan.")]
         private int initialPoolSize = 10;
 
-        [Header("Distancias (desde la cámara)")]
-        [SerializeField, Min(0f), Tooltip("Radio interior del anillo de spawn. Si queda dentro de la vista se agranda lo justo para que el asteroide aparezca fuera.")]
-        private float spawnRadius = 12.5f;
-        [SerializeField, Min(0f), Tooltip("Ancho del anillo: cada asteroide aparece a una distancia al azar entre el radio y el radio + ancho.")]
-        private float spawnRingWidth = 3f;
-        [SerializeField, Min(0f), Tooltip("Más lejos que esto el asteroide vuelve al pool. Nunca menor que el borde exterior del anillo.")]
-        private float despawnDistance = 22f;
-
-        [Header("Trayectoria")]
-        [SerializeField, Range(0f, 1f), Tooltip("Fracción de asteroides que se dirige a la zona del jugador.")]
-        private float aimedFraction = 0.5f;
-        [SerializeField, Min(0f), Tooltip("Radio del área alrededor del jugador a la que apuntan los dirigidos (unidades).")]
-        private float aimSpread = 3f;
+        [Header("Spawn")]
         [SerializeField, Tooltip("Layers, además de la de los cometas, sobre las que no se puede spawnear (p. ej. la nave nodriza).")]
         private LayerMask extraBlockingLayers;
 
@@ -57,9 +47,9 @@ namespace NavesShooter.Asteroids
 
         private void Awake()
         {
-            if (asteroidPrefab == null || director == null)
+            if (asteroidPrefab == null || director == null || config == null)
             {
-                Debug.LogError($"{nameof(AsteroidSpawner)}: faltan referencias (prefab del asteroide o director).", this);
+                Debug.LogError($"{nameof(AsteroidSpawner)}: faltan referencias (prefab del asteroide, director o GameConfig).", this);
                 enabled = false;
                 return;
             }
@@ -89,9 +79,20 @@ namespace NavesShooter.Asteroids
             resumeFrame = Time.frameCount + 1;
         }
 
+        // Final del nivel (acople): todos los activos explotan (emiten `Destroyed`; fuera de Playing no suman puntaje).
+        public void ExplodeAll()
+        {
+            foreach (Asteroid asteroid in active) asteroid.TakeHit();
+            // Los que todavía no dieron su primer paso de física ignoran el impacto: esos vuelven al pool sin explotar.
+            pool.ReleaseAll();
+            active.Clear();
+            director.ReportActive(ThreatKind.SmallComet, 0);
+        }
+
         private void Update()
         {
             if (Time.frameCount < resumeFrame) return;
+            if (gameManager != null && gameManager.State != GameState.Playing) return;
 
             Vector2 center = targetCamera.transform.position;
             float despawn = EffectiveDespawnDistance(targetCamera);
@@ -124,16 +125,16 @@ namespace NavesShooter.Asteroids
 
         private bool TrySpawn(Vector2 center)
         {
-            float radius = asteroidPrefab.Radius;
+            float radius = config.Asteroids.radius;
             float inner = InnerSpawnRadius(targetCamera, radius);
 
             for (int attempt = 0; attempt < SpawnAttempts; attempt++)
             {
-                Vector2 position = center + RandomDirection() * Random.Range(inner, inner + spawnRingWidth);
+                Vector2 position = center + RandomDirection() * Random.Range(inner, inner + config.AsteroidSpawner.spawnRingWidth);
                 if (Physics2D.OverlapCircle(position, radius + SpawnGap, blockingMask) != null) continue;
 
                 Asteroid asteroid = pool.Get(position, Quaternion.Euler(0f, 0f, Random.Range(0f, 360f)));
-                asteroid.Launch(pool, ChooseHeading(position, center), director.SmallCometSpeed);
+                asteroid.Launch(pool, ChooseHeading(position, center), config.Asteroids, director.SmallCometSpeed);
                 active.Add(asteroid);
                 return true;
             }
@@ -143,9 +144,9 @@ namespace NavesShooter.Asteroids
 
         private Vector2 ChooseHeading(Vector2 position, Vector2 center)
         {
-            if (player != null && Random.value < aimedFraction)
+            if (player != null && Random.value < config.AsteroidSpawner.aimedFraction)
             {
-                Vector2 target = (Vector2)player.position + Random.insideUnitCircle * aimSpread;
+                Vector2 target = (Vector2)player.position + Random.insideUnitCircle * config.AsteroidSpawner.aimSpread;
                 return target - position;
             }
 
@@ -164,14 +165,14 @@ namespace NavesShooter.Asteroids
 
         private float InnerSpawnRadius(Camera cam, float asteroidRadius)
         {
-            return Mathf.Max(spawnRadius, ViewHalfDiagonal(cam) + asteroidRadius + ViewMargin);
+            return Mathf.Max(config.AsteroidSpawner.spawnRadius, ViewHalfDiagonal(cam) + asteroidRadius + ViewMargin);
         }
 
         // Si fuera menor que el borde exterior del anillo, un asteroide podría volver al pool en el mismo frame en que aparece.
         private float EffectiveDespawnDistance(Camera cam)
         {
-            float outer = InnerSpawnRadius(cam, asteroidPrefab.Radius) + spawnRingWidth;
-            return Mathf.Max(despawnDistance, outer + DespawnMargin);
+            float outer = InnerSpawnRadius(cam, config.Asteroids.radius) + config.AsteroidSpawner.spawnRingWidth;
+            return Mathf.Max(config.AsteroidSpawner.despawnDistance, outer + DespawnMargin);
         }
 
         private static Vector2 RandomDirection()
@@ -183,15 +184,15 @@ namespace NavesShooter.Asteroids
         private void OnDrawGizmosSelected()
         {
             Camera cam = targetCamera != null ? targetCamera : Camera.main;
-            if (cam == null || asteroidPrefab == null) return;
+            if (cam == null || config == null) return;
 
             Vector3 center = cam.transform.position;
             center.z = 0f;
-            float inner = InnerSpawnRadius(cam, asteroidPrefab.Radius);
+            float inner = InnerSpawnRadius(cam, config.Asteroids.radius);
 
             Gizmos.color = Color.yellow;
             Gizmos.DrawWireSphere(center, inner);
-            Gizmos.DrawWireSphere(center, inner + spawnRingWidth);
+            Gizmos.DrawWireSphere(center, inner + config.AsteroidSpawner.spawnRingWidth);
             Gizmos.color = Color.red;
             Gizmos.DrawWireSphere(center, EffectiveDespawnDistance(cam));
         }

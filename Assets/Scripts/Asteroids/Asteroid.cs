@@ -22,19 +22,13 @@ namespace NavesShooter.Asteroids
     // Cometa chico en movimiento, con contorno neón: polígono irregular que se regenera cada vez que sale del pool, así
     // no hay dos iguales. Rigidbody2D dinámico sin gravedad ni amortiguación: conserva la velocidad y el giro con que se
     // lanza y rebota sin perder energía (también contra los cometas grandes, que son kinematic). Un impacto lo devuelve
-    // al pool y avisa por `Destroyed` (explosión, puntaje); no se divide.
+    // al pool y avisa por `Destroyed` (explosión, puntaje); no se divide. Radio, velocidad y giro salen de la sección
+    // Asteroids del GameConfig, que le pasa el spawner en `Launch`.
     [RequireComponent(typeof(Rigidbody2D), typeof(PolygonCollider2D), typeof(LineRenderer))]
     public class Asteroid : MonoBehaviour, IDamageable
     {
         // Se invoca después de devolver el cometa al pool.
         public static event Action<AsteroidDestroyed> Destroyed;
-
-        [Header("Movimiento")]
-        [SerializeField, Tooltip("Radio máximo del contorno (unidades).")] private float radius = 0.4f;
-        [SerializeField, Tooltip("Velocidad lineal mínima (x) y máxima (y), en unidades/s.")]
-        private Vector2 speedRange = new Vector2(1.8f, 2.8f);
-        [SerializeField, Tooltip("Giro mínimo (x) y máximo (y) en valor absoluto, en grados/s. El sentido es aleatorio.")]
-        private Vector2 spinRange = new Vector2(50f, 120f);
 
         [Header("Forma")]
         [SerializeField, Range(3, 32)] private int minVertices = 8;
@@ -60,15 +54,12 @@ namespace NavesShooter.Asteroids
         }
 
         private readonly List<Vector2> points = new List<Vector2>(32);
-        private System.Random shapeRandom;
+        private AsteroidShape.ShapeRandom shapeRandom;
         private Rigidbody2D body;
         private PolygonCollider2D polygon;
         private LineRenderer outline;
         private ObjectPool<Asteroid> pool;
         private bool pendingFirstStep;
-
-        // Sirve sobre el prefab, sin instancia activa (el spawner lo usa para ubicar).
-        public float Radius => radius;
 
         private void Reset()
         {
@@ -86,7 +77,7 @@ namespace NavesShooter.Asteroids
         private void Awake()
         {
             CacheComponents();
-            shapeRandom = new System.Random(Random.Range(int.MinValue, int.MaxValue));
+            shapeRandom = new AsteroidShape.ShapeRandom(Random.Range(int.MinValue, int.MaxValue));
 
             body.bodyType = RigidbodyType2D.Dynamic;
             body.gravityScale = 0f;
@@ -99,12 +90,12 @@ namespace NavesShooter.Asteroids
         }
 
         // Activación desde el pool: resetea todo el estado de la instancia reutilizada. Llamar después de pool.Get, que
-        // ya la ubicó y le dio la rotación inicial. Velocidad y giro salen al azar de los rangos; la velocidad se
-        // multiplica por `speedScale` (dificultad).
-        public void Launch(ObjectPool<Asteroid> owner, Vector2 direction, float speedScale = 1f)
+        // ya la ubicó y le dio la rotación inicial. Velocidad y giro salen al azar de los rangos de `settings`; la
+        // velocidad se multiplica por `speedScale` (dificultad).
+        public void Launch(ObjectPool<Asteroid> owner, Vector2 direction, GameConfig.AsteroidSettings settings, float speedScale = 1f)
         {
             pool = owner;
-            BuildShape(shapeRandom);
+            BuildShape(shapeRandom, settings.radius);
 
             // La instancia suele venir de un Release en el mismo frame: con interpolación, el transform se dibujaría
             // entre la pose vieja (lejos, del otro lado de la cámara) y la nueva, cruzando la pantalla. Sin interpolar
@@ -113,8 +104,8 @@ namespace NavesShooter.Asteroids
             pendingFirstStep = true;
             body.position = transform.position;
             body.rotation = transform.eulerAngles.z;
-            body.linearVelocity = direction.normalized * (Random.Range(speedRange.x, speedRange.y) * speedScale);
-            float spin = Random.Range(spinRange.x, spinRange.y);
+            body.linearVelocity = direction.normalized * (Random.Range(settings.speedRange.x, settings.speedRange.y) * speedScale);
+            float spin = Random.Range(settings.spinRange.x, settings.spinRange.y);
             body.angularVelocity = Random.value < 0.5f ? spin : -spin;
         }
 
@@ -146,7 +137,7 @@ namespace NavesShooter.Asteroids
             else gameObject.SetActive(false);
         }
 
-        private void BuildShape(System.Random random)
+        private void BuildShape(AsteroidShape.ShapeRandom random, float radius)
         {
             AsteroidShape.Build(points, random, radius, minVertices, maxVertices, minRadiusFactor, angleJitter);
             AsteroidShape.Apply(points, polygon, outline);
@@ -170,13 +161,14 @@ namespace NavesShooter.Asteroids
             outline.alignment = LineAlignment.View;
         }
 
-        // Genera una forma de muestra para previsualizar en el Editor. En juego la forma la crea Launch.
+        // Genera una forma de muestra (con el radio por defecto del GameConfig) para previsualizar en el Editor. En
+        // juego la forma la crea Launch.
         [ContextMenu("Generar forma de muestra")]
         public void PreviewShape()
         {
             CacheComponents();
             ApplyOutlineStyle();
-            BuildShape(new System.Random());
+            BuildShape(new AsteroidShape.ShapeRandom(Random.Range(int.MinValue, int.MaxValue)), new GameConfig.AsteroidSettings().radius);
         }
     }
 }

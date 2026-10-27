@@ -32,6 +32,8 @@ namespace NavesShooter.UI
         [SerializeField, Tooltip("Ícono de la nave, apuntando hacia arriba en reposo.")] private RectTransform shipIcon;
         [SerializeField, Tooltip("Marcador inactivo que se clona por contacto (hijo centrado del radar).")]
         private NeonShapeGraphic markerTemplate;
+        [SerializeField, Min(0), Tooltip("Marcadores precreados en Awake (nave nodriza + oleada completa), para no instanciar en juego.")]
+        private int initialMarkers = 8;
         [SerializeField, Min(0f), Tooltip("Distancia del borde del círculo a la que quedan los contactos fuera de alcance.")]
         private float edgeInset = 18f;
         [SerializeField, Tooltip("Contornos del radar a los que se aplica `ringAlpha`.")] private NeonShapeGraphic[] rings;
@@ -69,6 +71,8 @@ namespace NavesShooter.UI
         {
             rectTransform = (RectTransform)transform;
             if (markerTemplate != null) markerTemplate.gameObject.SetActive(false);
+            // Los clones salen inactivos, como el molde.
+            for (int i = 0; i < initialMarkers; i++) GetMarker(i);
 
             float alpha = ringAlpha;
             if (QualitySettings.activeColorSpace == ColorSpace.Linear) alpha = Mathf.GammaToLinearSpace(alpha);

@@ -5,7 +5,9 @@ namespace NavesShooter.Core
     // Cámara con zona muerta: el objetivo se mueve libre dentro de un rectángulo interior del safe area y la cámara
     // solo se desplaza cuando sale de él, lo justo para devolverlo al borde, suavizado con SmoothDamp. Un límite duro
     // exterior corrige al instante si el objetivo llega a acercarse demasiado al borde de la pantalla.
-    // Nunca toca la rotación. Pensada para cámara ortográfica.
+    // Nunca toca la rotación. Pensada para cámara ortográfica. `ShakeOffset` (sacudida del salto) se suma a la posición
+    // final sin afectar el seguimiento: se descuenta al empezar el frame siguiente. Con un foco (`SetFocus`, el final del
+    // nivel) deja de seguir al objetivo y se centra suavizada en ese punto hasta `ClearFocus` o el reinicio.
     [RequireComponent(typeof(Camera))]
     public class CameraFollow : MonoBehaviour
     {
@@ -30,6 +32,8 @@ namespace NavesShooter.Core
         [SerializeField, Tooltip("Adelanta el destino del suavizado según la velocidad con que se corre la zona, para que a velocidad " +
             "constante el objetivo quede en el borde de la zona y no ≈ velocidad × smoothTime más afuera.")]
         private bool compensateLag = true;
+        [SerializeField, Min(0.01f), Tooltip("Segundos aproximados para centrarse en un foco (SetFocus).")]
+        private float focusSmoothTime = 0.6f;
         [SerializeField, Tooltip("Al reiniciar la partida, la cámara salta a centrar el objetivo en vez de viajar suavizada.")]
         private GameManager gameManager;
 
@@ -40,6 +44,12 @@ namespace NavesShooter.Core
         private Vector2 goal;
         private Vector2 goalVelocity;
         private bool snapPending;
+        private Vector2 appliedShake;
+        private bool hasFocus;
+        private Vector2 focus;
+
+        // Desplazamiento extra de la cámara (sacudida). Lo maneja quien la produce; 0 = sin sacudida.
+        public Vector2 ShakeOffset { get; set; }
 
         // Zonas relativas al centro de la cámara, en unidades de mundo.
         private Rect deadZoneRect;
@@ -76,7 +86,19 @@ namespace NavesShooter.Core
         }
 
         // El salto se hace en LateUpdate, cuando el objetivo ya está en su lugar nuevo.
-        private void RequestSnap() => snapPending = true;
+        private void RequestSnap()
+        {
+            snapPending = true;
+            hasFocus = false;
+        }
+
+        public void SetFocus(Vector2 point)
+        {
+            hasFocus = true;
+            focus = point;
+        }
+
+        public void ClearFocus() => hasFocus = false;
 
         private void OnValidate()
         {
@@ -87,6 +109,8 @@ namespace NavesShooter.Core
         {
             if (target == null) return;
             UpdateZonesIfNeeded();
+            transform.position -= (Vector3)appliedShake;
+            appliedShake = Vector2.zero;
 
             Vector2 targetPosition = target.position;
             if (snapPending)
@@ -96,6 +120,17 @@ namespace NavesShooter.Core
                 goalVelocity = Vector2.zero;
                 velocity = Vector3.zero;
                 transform.position = new Vector3(goal.x, goal.y, transform.position.z);
+                ApplyShake();
+                return;
+            }
+
+            if (hasFocus)
+            {
+                transform.position = Vector3.SmoothDamp(transform.position, new Vector3(focus.x, focus.y, transform.position.z), ref velocity, focusSmoothTime);
+                // Al soltar el foco, la zona muerta sigue desde donde quedó la cámara.
+                goal = transform.position;
+                goalVelocity = Vector2.zero;
+                ApplyShake();
                 return;
             }
 
@@ -117,6 +152,13 @@ namespace NavesShooter.Core
             }
 
             transform.position = position;
+            ApplyShake();
+        }
+
+        private void ApplyShake()
+        {
+            appliedShake = ShakeOffset;
+            transform.position += (Vector3)appliedShake;
         }
 
         // Corre la meta lo justo para que el objetivo quede dentro de la zona muerta medida desde ella.

@@ -41,6 +41,7 @@ namespace NavesShooter.Asteroids
         private const string InnerName = "Inner";
 
         private readonly List<Vector2> points = new List<Vector2>(32);
+        private readonly AsteroidShape.ShapeRandom shapeRandom = new AsteroidShape.ShapeRandom(0);
         private Rigidbody2D body;
         private PolygonCollider2D polygon;
         private LineRenderer outline;
@@ -82,7 +83,8 @@ namespace NavesShooter.Asteroids
 
         private void BuildShape(float radius, int seed)
         {
-            AsteroidShape.Build(points, new System.Random(seed), radius, minVertices, maxVertices, minRadiusFactor, angleJitter);
+            shapeRandom.Reset(seed);
+            AsteroidShape.Build(points, shapeRandom, radius, minVertices, maxVertices, minRadiusFactor, angleJitter);
             AsteroidShape.Apply(points, polygon, outline);
 
             inner.positionCount = points.Count;

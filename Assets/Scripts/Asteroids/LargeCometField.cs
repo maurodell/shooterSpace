@@ -4,7 +4,8 @@ using UnityEngine;
 
 namespace NavesShooter.Asteroids
 {
-    // Campo de cometas grandes a lo largo del recorrido de A a B. Se genera una sola vez al empezar, con la semilla del
+    // Campo de cometas grandes a lo largo del recorrido de A a B. Tamaños, separaciones y franja salen de la sección
+    // LargeComets del GameConfig. Se genera una sola vez al empezar, con la semilla del
     // nivel (siempre el mismo campo para el mismo nivel), sobre una franja de `halfWidth` a cada lado de la recta A→B.
     // Distribución Poisson disk (Bridson) con separación variable: ningún par de centros a menos de `spacing`, que
     // depende de la densidad del DifficultyDirector en ese punto del recorrido (más ralo al principio, más denso hacia el
@@ -13,36 +14,24 @@ namespace NavesShooter.Asteroids
     // candidato se descarta. Alrededor de B queda la zona de llegada (LevelDefinition.ArrivalClearRadius) sin cometas.
     // Todos los cometas son datos; solo los que están a menos de `activationRadius` de la cámara tienen un GameObject
     // del pool. Se buscan con una grilla espacial, y se desactivan recién a `activationRadius + hysteresis` para que no
-    // parpadeen en el borde.
+    // parpadeen en el borde. Al pasar de nivel (LevelManager.LevelLoaded) devuelve todo al pool y genera el campo nuevo.
     public class LargeCometField : MonoBehaviour
     {
         [Header("Referencias")]
         [SerializeField] private LevelManager levelManager;
+        [SerializeField, Tooltip("Tamaños, separación, pasillos y franja de los cometas (sección LargeComets).")]
+        private GameConfig config;
         [SerializeField, Tooltip("Densidad a lo largo del recorrido y zona de llegada.")] private DifficultyDirector director;
         [SerializeField] private LargeComet cometPrefab;
         [SerializeField, Tooltip("Centro de la activación. Si está vacío usa Camera.main.")] private Camera targetCamera;
 
         [Header("Zona")]
-        [SerializeField, Min(0f), Tooltip("Ancho de la franja con cometas a cada lado de la recta A→B (unidades).")]
-        private float halfWidth = 20f;
         [SerializeField, Min(0f), Tooltip("Cuánto se extiende el campo detrás de A.")] private float behindStart = 12f;
         [SerializeField, Min(0f), Tooltip("Cuánto se extiende el campo más allá de B.")] private float beyondTarget = 20f;
-        [SerializeField, Min(0f), Tooltip("Radio alrededor de A sin cometas.")] private float startClearance = 8f;
-        [SerializeField, Min(0f), Tooltip("Espacio libre mínimo entre un cometa y la zona de acople o el casco de la nave nodriza.")]
-        private float targetClearance = 5f;
 
         [Header("Distribución")]
-        [SerializeField, Tooltip("Radio mínimo (x) y máximo (y) de un cometa.")] private Vector2 radiusRange = new Vector2(1.2f, 2.8f);
-        [SerializeField, Min(0f), Tooltip("Pasillo mínimo entre los bordes de dos cometas (la nave mide ~0.65 de ancho).")]
-        private float minGap = 2.5f;
-        [SerializeField, Min(0.1f), Tooltip("Separación mínima entre centros con densidad 0 (DifficultyDirector.LargeCometDensityAt).")]
-        private float sparseSpacing = 14f;
-        [SerializeField, Min(0.1f), Tooltip("Separación mínima entre centros con densidad 1.")]
-        private float denseSpacing = 6.5f;
         [SerializeField, Range(1, 60), Tooltip("Candidatos que se prueban alrededor de cada cometa (k de Bridson). Más = más compacto.")]
         private int candidatesPerPoint = 20;
-        [SerializeField, Tooltip("Giro visual mínimo (x) y máximo (y) en valor absoluto, en grados/s.")]
-        private Vector2 spinRange = new Vector2(2f, 7f);
 
         [Header("Activación (desde la cámara)")]
         [SerializeField, Min(0f), Tooltip("Cometas más cerca que esto tienen GameObject. Cubre el despawn de los cometas chicos " +
@@ -61,14 +50,16 @@ namespace NavesShooter.Asteroids
         private readonly Dictionary<Vector2Int, List<int>> cells = new Dictionary<Vector2Int, List<int>>();
         private ObjectPool<LargeComet> pool;
 
+        private GameConfig.LargeCometSettings Settings => config.LargeComets;
+
         public int Count => comets.Length;
         public int ActiveCount => active.Count;
 
         private void Awake()
         {
-            if (levelManager == null || director == null || cometPrefab == null)
+            if (levelManager == null || director == null || cometPrefab == null || config == null)
             {
-                Debug.LogError($"{nameof(LargeCometField)}: faltan referencias (LevelManager, director o prefab).", this);
+                Debug.LogError($"{nameof(LargeCometField)}: faltan referencias (LevelManager, director, prefab o GameConfig).", this);
                 enabled = false;
                 return;
             }
@@ -81,6 +72,24 @@ namespace NavesShooter.Asteroids
         private void Start()
         {
             if (levelManager.Level == null) return;
+            Generate();
+        }
+
+        private void OnEnable()
+        {
+            if (levelManager != null) levelManager.LevelLoaded += Regenerate;
+        }
+
+        private void OnDisable()
+        {
+            if (levelManager != null) levelManager.LevelLoaded -= Regenerate;
+        }
+
+        // Nivel nuevo: los cometas activos vuelven al pool y se activan los del campo nuevo en el próximo Update.
+        private void Regenerate()
+        {
+            pool.ReleaseAll();
+            active.Clear();
             Generate();
         }
 
@@ -135,27 +144,27 @@ namespace NavesShooter.Asteroids
             float maxY = level.Distance + beyondTarget;
 
             // Separación entre centros en la posición y local: la del progreso de ese punto (0 en A, 1 en B).
-            float SpacingAt(float y) => Mathf.Lerp(sparseSpacing, denseSpacing, director.LargeCometDensityAt(y / level.Distance));
-            float minSpacing = Mathf.Min(sparseSpacing, denseSpacing);
-            float maxSpacing = Mathf.Max(sparseSpacing, denseSpacing);
+            float SpacingAt(float y) => Mathf.Lerp(Settings.sparseSpacing, Settings.denseSpacing, director.LargeCometDensityAt(y / level.Distance));
+            float minSpacing = Mathf.Min(Settings.sparseSpacing, Settings.denseSpacing);
+            float maxSpacing = Mathf.Max(Settings.sparseSpacing, Settings.denseSpacing);
 
             // Exclusiones (en locales): A, la zona de llegada alrededor de B, la zona de acople y el casco de la nave nodriza.
-            var exclusions = new List<Vector3> { new Vector3(0f, 0f, startClearance) };
+            var exclusions = new List<Vector3> { new Vector3(0f, 0f, Settings.startClearance) };
             var mothership = levelManager.Mothership;
             if (mothership != null)
             {
                 exclusions.Add(ToLocal(mothership.DockPosition, origin, right, forward, director.ArrivalClearRadius));
-                exclusions.Add(ToLocal(mothership.DockPosition, origin, right, forward, mothership.DockRadius + targetClearance));
-                exclusions.Add(ToLocal(mothership.transform.position, origin, right, forward, mothership.HullRadius + targetClearance));
+                exclusions.Add(ToLocal(mothership.DockPosition, origin, right, forward, mothership.DockRadius + Settings.targetClearance));
+                exclusions.Add(ToLocal(mothership.transform.position, origin, right, forward, mothership.HullRadius + Settings.targetClearance));
             }
 
             // Con celdas de lado (separación mínima)/√2 cabe a lo sumo un centro por celda.
             float cellSize = minSpacing / Mathf.Sqrt(2f);
-            int columns = Mathf.Max(1, Mathf.CeilToInt(2f * halfWidth / cellSize));
+            int columns = Mathf.Max(1, Mathf.CeilToInt(2f * Settings.halfWidth / cellSize));
             int rows = Mathf.Max(1, Mathf.CeilToInt((maxY - minY) / cellSize));
             var grid = new int[columns * rows];
             for (int i = 0; i < grid.Length; i++) grid[i] = -1;
-            int reachCells = Mathf.CeilToInt(Mathf.Max(maxSpacing, 2f * radiusRange.y + minGap) / cellSize);
+            int reachCells = Mathf.CeilToInt(Mathf.Max(maxSpacing, 2f * Settings.radiusRange.y + Settings.minGap) / cellSize);
 
             var positions = new List<Vector2>();
             var radii = new List<float>();
@@ -164,14 +173,14 @@ namespace NavesShooter.Asteroids
 
             bool TryAdd(Vector2 p)
             {
-                if (p.x < -halfWidth || p.x >= halfWidth || p.y < minY || p.y >= maxY) return false;
+                if (p.x < -Settings.halfWidth || p.x >= Settings.halfWidth || p.y < minY || p.y >= maxY) return false;
 
                 float spacing = SpacingAt(p.y);
-                float allowed = radiusRange.y;
+                float allowed = Settings.radiusRange.y;
                 foreach (Vector3 exclusion in exclusions)
                     allowed = Mathf.Min(allowed, Vector2.Distance(p, exclusion) - exclusion.z);
 
-                int cx = Mathf.Min(columns - 1, (int)((p.x + halfWidth) / cellSize));
+                int cx = Mathf.Min(columns - 1, (int)((p.x + Settings.halfWidth) / cellSize));
                 int cy = Mathf.Min(rows - 1, (int)((p.y - minY) / cellSize));
                 for (int y = Mathf.Max(0, cy - reachCells); y <= Mathf.Min(rows - 1, cy + reachCells); y++)
                 {
@@ -182,23 +191,23 @@ namespace NavesShooter.Asteroids
                         float distance = Vector2.Distance(p, positions[other]);
                         // La mayor de las dos: un punto del tramo denso no invade el ralo vecino.
                         if (distance < Mathf.Max(spacing, spacings[other])) return false;
-                        allowed = Mathf.Min(allowed, distance - radii[other] - minGap);
+                        allowed = Mathf.Min(allowed, distance - radii[other] - Settings.minGap);
                     }
                 }
 
-                if (allowed < radiusRange.x) return false;
+                if (allowed < Settings.radiusRange.x) return false;
 
                 grid[cy * columns + cx] = positions.Count;
                 open.Add(positions.Count);
                 positions.Add(p);
                 spacings.Add(spacing);
-                radii.Add(AsteroidShape.Range(random, radiusRange.x, allowed));
+                radii.Add(AsteroidShape.Range(random, Settings.radiusRange.x, allowed));
                 return true;
             }
 
             for (int attempt = 0; attempt < SeedAttempts; attempt++)
             {
-                var seed = new Vector2(AsteroidShape.Range(random, -halfWidth, halfWidth),
+                var seed = new Vector2(AsteroidShape.Range(random, -Settings.halfWidth, Settings.halfWidth),
                     AsteroidShape.Range(random, minY, maxY));
                 if (TryAdd(seed)) break;
             }
@@ -226,7 +235,7 @@ namespace NavesShooter.Asteroids
             cells.Clear();
             for (int i = 0; i < positions.Count; i++)
             {
-                float spin = AsteroidShape.Range(random, spinRange.x, spinRange.y);
+                float spin = AsteroidShape.Range(random, Settings.spinRange.x, Settings.spinRange.y);
                 comets[i] = new LargeCometData
                 {
                     Position = origin + right * positions[i].x + forward * positions[i].y,
@@ -257,7 +266,7 @@ namespace NavesShooter.Asteroids
             float halfHeight = cam.orthographicSize;
             float halfViewWidth = halfHeight * cam.aspect;
             float viewHalfDiagonal = Mathf.Sqrt(halfViewWidth * halfViewWidth + halfHeight * halfHeight);
-            return Mathf.Max(activationRadius, viewHalfDiagonal + radiusRange.y + ViewMargin);
+            return Mathf.Max(activationRadius, viewHalfDiagonal + Settings.radiusRange.y + ViewMargin);
         }
 
         private void OnDrawGizmosSelected()
@@ -266,7 +275,7 @@ namespace NavesShooter.Asteroids
             foreach (LargeCometData comet in comets) Gizmos.DrawWireSphere(comet.Position, comet.Radius);
 
             Camera cam = targetCamera != null ? targetCamera : Camera.main;
-            if (cam == null) return;
+            if (cam == null || config == null) return;
             Vector3 center = cam.transform.position;
             center.z = 0f;
             Gizmos.color = Color.cyan;

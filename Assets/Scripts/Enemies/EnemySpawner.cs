@@ -28,21 +28,9 @@ namespace NavesShooter.Enemies
         [SerializeField] private GameManager gameManager;
         [SerializeField, Tooltip("Tamaño de oleada, intervalos, agresividad y presupuesto de amenaza.")]
         private DifficultyDirector director;
+        [SerializeField, Tooltip("Naves (sección Enemies) y oleadas y ubicación (sección EnemySpawner).")] private GameConfig config;
 
-        [Header("Oleadas")]
-        [SerializeField, Min(0f), Tooltip("Segundos mínimos hasta la primera oleada, al empezar y al reiniciar.")] private float initialDelay = 4f;
-
-        [Header("Ubicación (desde la cámara)")]
-        [SerializeField, Min(0f), Tooltip("Radio interior del anillo. Si queda dentro de la vista se agranda lo justo.")]
-        private float spawnRadius = 12.5f;
-        [SerializeField, Min(0f)] private float spawnRingWidth = 3f;
-        [SerializeField, Min(0f), Tooltip("Más lejos que esto el enemigo vuelve al pool. Nunca menor que el borde exterior del anillo.")]
-        private float despawnDistance = 30f;
-        [SerializeField, Range(0f, 1f), Tooltip("Probabilidad de aparecer por delante del jugador (hacia B).")]
-        private float forwardChance = 0.8f;
-        [SerializeField, Range(0f, 180f), Tooltip("Desvío máximo respecto de la dirección hacia B, en grados a cada lado.")]
-        private float forwardSpread = 60f;
-        [SerializeField, Min(0f), Tooltip("Radio libre que necesita el punto de aparición.")] private float spawnClearance = 1.5f;
+        [Header("Ubicación")]
         [SerializeField, Tooltip("Layers sobre las que no se puede aparecer (cometas, nave nodriza, otros enemigos).")]
         private LayerMask blockingLayers;
 
@@ -73,9 +61,9 @@ namespace NavesShooter.Enemies
 
         private void Awake()
         {
-            if (enemyPrefab == null || projectilePrefab == null || player == null || director == null)
+            if (enemyPrefab == null || projectilePrefab == null || player == null || director == null || config == null)
             {
-                Debug.LogError($"{nameof(EnemySpawner)}: faltan referencias (prefabs, jugador o director).", this);
+                Debug.LogError($"{nameof(EnemySpawner)}: faltan referencias (prefabs, jugador, director o GameConfig).", this);
                 enabled = false;
                 return;
             }
@@ -83,7 +71,7 @@ namespace NavesShooter.Enemies
             if (targetCamera == null) targetCamera = Camera.main;
             pool = new ObjectPool<EnemyShip>(enemyPrefab, initialPoolSize, new GameObject("Enemies").transform);
             projectilePool = new ObjectPool<Projectile>(projectilePrefab, projectilePoolSize, new GameObject("EnemyProjectiles").transform);
-            timer = initialDelay;
+            timer = config.EnemySpawner.initialDelay;
         }
 
         private void OnEnable()
@@ -102,12 +90,20 @@ namespace NavesShooter.Enemies
             pool.ReleaseAll();
             projectilePool.ReleaseAll();
             active.Clear();
-            timer = initialDelay;
+            timer = config.EnemySpawner.initialDelay;
             inWave = false;
             waveRemaining = 0;
             WaveSize = 0;
             director.ReportActive(ThreatKind.Enemy, 0);
             director.ReportReserved(ThreatKind.Enemy, 0);
+        }
+
+        // Final del nivel (acople): las naves activas explotan (emiten `Destroyed`; fuera de Playing no suman puntaje),
+        // los proyectiles en vuelo desaparecen y se corta la oleada.
+        public void ExplodeAll()
+        {
+            foreach (EnemyShip enemy in active) enemy.Explode();
+            DespawnAll();
         }
 
         private void Update()
@@ -173,18 +169,18 @@ namespace NavesShooter.Enemies
 
             for (int attempt = 0; attempt < SpawnAttempts; attempt++)
             {
-                Vector2 direction = Random.value < forwardChance
-                    ? Rotate(forward, Random.Range(-forwardSpread, forwardSpread))
+                Vector2 direction = Random.value < config.EnemySpawner.forwardChance
+                    ? Rotate(forward, Random.Range(-config.EnemySpawner.forwardSpread, config.EnemySpawner.forwardSpread))
                     : Random.insideUnitCircle.normalized;
                 if (direction.sqrMagnitude < 0.0001f) continue;
 
-                Vector2 position = center + direction * Random.Range(inner, inner + spawnRingWidth);
-                if (Physics2D.OverlapCircle(position, spawnClearance, blockingLayers) != null) continue;
+                Vector2 position = center + direction * Random.Range(inner, inner + config.EnemySpawner.spawnRingWidth);
+                if (Physics2D.OverlapCircle(position, config.EnemySpawner.spawnClearance, blockingLayers) != null) continue;
 
                 Vector2 toPlayer = (Vector2)player.position - position;
                 float angle = Mathf.Atan2(-toPlayer.x, toPlayer.y) * Mathf.Rad2Deg;
                 EnemyShip enemy = pool.Get(position, Quaternion.Euler(0f, 0f, angle));
-                enemy.Launch(pool, projectilePool, player, gameManager, director.EnemyFireRate, director.EnemyInaccuracy);
+                enemy.Launch(pool, projectilePool, player, gameManager, config.Enemies, director.EnemyFireRate, director.EnemyInaccuracy);
                 active.Add(enemy);
                 return true;
             }
@@ -211,25 +207,25 @@ namespace NavesShooter.Enemies
             float halfHeight = cam.orthographicSize;
             float halfWidth = halfHeight * cam.aspect;
             float halfDiagonal = Mathf.Sqrt(halfWidth * halfWidth + halfHeight * halfHeight);
-            return Mathf.Max(spawnRadius, halfDiagonal + ViewMargin);
+            return Mathf.Max(config.EnemySpawner.spawnRadius, halfDiagonal + ViewMargin);
         }
 
         private float EffectiveDespawnDistance(Camera cam)
         {
-            return Mathf.Max(despawnDistance, InnerSpawnRadius(cam) + spawnRingWidth + DespawnMargin);
+            return Mathf.Max(config.EnemySpawner.despawnDistance, InnerSpawnRadius(cam) + config.EnemySpawner.spawnRingWidth + DespawnMargin);
         }
 
         private void OnDrawGizmosSelected()
         {
             Camera cam = targetCamera != null ? targetCamera : Camera.main;
-            if (cam == null) return;
+            if (cam == null || config == null) return;
 
             Vector3 center = cam.transform.position;
             center.z = 0f;
             float inner = InnerSpawnRadius(cam);
             Gizmos.color = new Color(1f, 0.3f, 0.1f);
             Gizmos.DrawWireSphere(center, inner);
-            Gizmos.DrawWireSphere(center, inner + spawnRingWidth);
+            Gizmos.DrawWireSphere(center, inner + config.EnemySpawner.spawnRingWidth);
             Gizmos.color = Color.red;
             Gizmos.DrawWireSphere(center, EffectiveDespawnDistance(cam));
         }
