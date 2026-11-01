@@ -1,4 +1,5 @@
 using System;
+using NavesShooter.Core;
 using UnityEngine;
 using UnityEngine.Rendering;
 
@@ -100,7 +101,7 @@ namespace NavesShooter.Background
 
         private void LateUpdate()
         {
-            // Cambio de resolución u orthographicSize: redistribuir estrellas en el área nueva. Solo si el área tiene que
+            // Cambio de resolución, orthographicSize o fieldOfView: redistribuir estrellas en el área nueva. Solo si el área tiene que
             // crecer: con un zoom hacia adentro (el del salto) las mismas estrellas alcanzan, y redistribuirlas cada
             // frame del zoom las dejaría quietas respecto de la cámara.
             Vector2 needed = CurrentHalfExtents();
@@ -173,8 +174,9 @@ namespace NavesShooter.Background
 
         private Vector2 CurrentHalfExtents()
         {
-            float halfHeight = targetCamera.orthographicSize;
-            return new Vector2(halfHeight * targetCamera.aspect + margin, halfHeight + margin);
+            // En perspectiva, el área visible en el plano de las capas (su z), más grande que la del gameplay.
+            Vector2 half = CameraView.HalfExtents(targetCamera, transform.position.z);
+            return new Vector2(half.x + margin, half.y + margin);
         }
 
         private LayerState CreateLayer(int index)

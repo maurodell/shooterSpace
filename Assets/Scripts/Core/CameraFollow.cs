@@ -5,7 +5,8 @@ namespace NavesShooter.Core
     // Cámara con zona muerta: el objetivo se mueve libre dentro de un rectángulo interior del safe area y la cámara
     // solo se desplaza cuando sale de él, lo justo para devolverlo al borde, suavizado con SmoothDamp. Un límite duro
     // exterior corrige al instante si el objetivo llega a acercarse demasiado al borde de la pantalla.
-    // Nunca toca la rotación. Pensada para cámara ortográfica. `ShakeOffset` (sacudida del salto) se suma a la posición
+    // Nunca toca la rotación ni la z. Ortográfica o en perspectiva: las zonas se miden en el plano del gameplay (z = 0,
+    // `CameraView`). `ShakeOffset` (sacudida del salto) se suma a la posición
     // final sin afectar el seguimiento: se descuenta al empezar el frame siguiente. Con un foco (`SetFocus`, el final del
     // nivel) deja de seguir al objetivo y se centra suavizada en ese punto hasta `ClearFocus` o el reinicio.
     [RequireComponent(typeof(Camera))]
@@ -58,8 +59,7 @@ namespace NavesShooter.Core
         // Parámetros con los que se calcularon las zonas; si alguno cambia, se recalculan.
         private Rect appliedSafeArea;
         private Vector2Int appliedScreenSize;
-        private float appliedOrthographicSize;
-        private float appliedAspect;
+        private Vector2 appliedHalfExtents;
 
         private void Awake()
         {
@@ -172,13 +172,12 @@ namespace NavesShooter.Core
             Rect safeArea = Screen.safeArea;
             var screenSize = new Vector2Int(Screen.width, Screen.height);
             if (safeArea == appliedSafeArea && screenSize == appliedScreenSize
-                && cam.orthographicSize == appliedOrthographicSize && cam.aspect == appliedAspect)
+                && CameraView.HalfExtents(cam) == appliedHalfExtents)
                 return;
 
             appliedSafeArea = safeArea;
             appliedScreenSize = screenSize;
-            appliedOrthographicSize = cam.orthographicSize;
-            appliedAspect = cam.aspect;
+            appliedHalfExtents = CameraView.HalfExtents(cam);
 
             Rect safeViewport = SafeAreaViewport(cam, safeArea);
             hardRect = ToCameraRect(cam, safeViewport, hardLimit);
@@ -212,11 +211,10 @@ namespace NavesShooter.Core
             if (xMin > xMax) xMin = xMax = (xMin + xMax) * 0.5f;
             if (yMin > yMax) yMin = yMax = (yMin + yMax) * 0.5f;
 
-            float halfHeight = camera.orthographicSize;
-            float halfWidth = halfHeight * camera.aspect;
+            Vector2 half = CameraView.HalfExtents(camera);
             return Rect.MinMaxRect(
-                (xMin - 0.5f) * 2f * halfWidth, (yMin - 0.5f) * 2f * halfHeight,
-                (xMax - 0.5f) * 2f * halfWidth, (yMax - 0.5f) * 2f * halfHeight);
+                (xMin - 0.5f) * 2f * half.x, (yMin - 0.5f) * 2f * half.y,
+                (xMax - 0.5f) * 2f * half.x, (yMax - 0.5f) * 2f * half.y);
         }
 
         private static Vector2 Clamp(Vector2 point, Rect rect)

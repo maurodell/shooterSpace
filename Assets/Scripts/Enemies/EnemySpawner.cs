@@ -204,10 +204,7 @@ namespace NavesShooter.Enemies
         // Semidiagonal del área visible más el margen: el enemigo aparece siempre fuera de la vista.
         private float InnerSpawnRadius(Camera cam)
         {
-            float halfHeight = cam.orthographicSize;
-            float halfWidth = halfHeight * cam.aspect;
-            float halfDiagonal = Mathf.Sqrt(halfWidth * halfWidth + halfHeight * halfHeight);
-            return Mathf.Max(config.EnemySpawner.spawnRadius, halfDiagonal + ViewMargin);
+            return Mathf.Max(config.EnemySpawner.spawnRadius, CameraView.HalfDiagonal(cam) + ViewMargin);
         }
 
         private float EffectiveDespawnDistance(Camera cam)

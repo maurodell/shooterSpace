@@ -156,12 +156,7 @@ namespace NavesShooter.Asteroids
         }
 
         // Semidiagonal del área visible: el círculo más chico centrado en la cámara que la contiene entera.
-        private static float ViewHalfDiagonal(Camera cam)
-        {
-            float halfHeight = cam.orthographicSize;
-            float halfWidth = halfHeight * cam.aspect;
-            return Mathf.Sqrt(halfWidth * halfWidth + halfHeight * halfHeight);
-        }
+        private static float ViewHalfDiagonal(Camera cam) => CameraView.HalfDiagonal(cam);
 
         private float InnerSpawnRadius(Camera cam, float asteroidRadius)
         {

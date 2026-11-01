@@ -45,7 +45,7 @@ namespace NavesShooter.Level
         [SerializeField, Min(0.01f), Tooltip("Fundido de los controles táctiles.")] private float controlsFade = 0.3f;
 
         [Header("Salto")]
-        [SerializeField, Range(0.5f, 1f), Tooltip("orthographicSize al final del salto, en fracción del normal.")]
+        [SerializeField, Range(0.5f, 1f), Tooltip("Alto visible al final del salto, en fracción del normal (orthographicSize o fieldOfView).")]
         private float zoom = 0.88f;
         [SerializeField, Min(0f), Tooltip("Amplitud máxima de la sacudida de cámara (unidades).")] private float shakeAmplitude = 0.3f;
         [SerializeField, Min(0f), Tooltip("Frecuencia de la sacudida.")] private float shakeFrequency = 22f;
@@ -59,7 +59,8 @@ namespace NavesShooter.Level
         private Phase phase;
         private float time;
         private float exitStartWarp;
-        private float baseOrthographicSize;
+        // orthographicSize (ortográfica) o fieldOfView (perspectiva) sin zoom.
+        private float baseLens;
         private Camera cam;
 
         private void Awake()
@@ -67,7 +68,7 @@ namespace NavesShooter.Level
             if (cameraFollow != null)
             {
                 cam = cameraFollow.GetComponent<Camera>();
-                baseOrthographicSize = cam.orthographicSize;
+                baseLens = cam.orthographic ? cam.orthographicSize : cam.fieldOfView;
             }
             SetText(0f, 1f);
             SetFlash(0f);
@@ -142,7 +143,7 @@ namespace NavesShooter.Level
                     SetGlow(1f);
                     SetText(1f - Mathf.Clamp01(k / 0.4f), Pulse());
                     if (starfield != null) starfield.Warp = k * k;
-                    if (cam != null) cam.orthographicSize = baseOrthographicSize * Mathf.Lerp(1f, zoom, Mathf.SmoothStep(0f, 1f, k));
+                    SetZoom(Mathf.Lerp(1f, zoom, Mathf.SmoothStep(0f, 1f, k)));
                     SetShake(shakeAmplitude * k);
                     SetFlash(Mathf.SmoothStep(0f, 1f, Mathf.InverseLerp(flashStart, 1f, k)));
                     if (k >= 1f) Jumped();
@@ -196,7 +197,7 @@ namespace NavesShooter.Level
             SetShake(0f);
             SetFlash(0f);
             SetText(0f, 1f);
-            if (cam != null) cam.orthographicSize = baseOrthographicSize;
+            SetZoom(1f);
         }
 
         private void Next(Phase next)
@@ -231,6 +232,19 @@ namespace NavesShooter.Level
             }
             float t = Time.time * shakeFrequency;
             cameraFollow.ShakeOffset = new Vector2(Mathf.PerlinNoise(t, 0.37f) - 0.5f, Mathf.PerlinNoise(0.71f, t) - 0.5f) * (2f * amplitude);
+        }
+
+        // Alto visible en fracción del normal. En perspectiva el alto es proporcional a tan(fov/2).
+        private void SetZoom(float factor)
+        {
+            if (cam == null) return;
+            if (cam.orthographic)
+            {
+                cam.orthographicSize = baseLens * factor;
+                return;
+            }
+            float halfTan = Mathf.Tan(baseLens * 0.5f * Mathf.Deg2Rad) * factor;
+            cam.fieldOfView = 2f * Mathf.Atan(halfTan) * Mathf.Rad2Deg;
         }
 
         private void SetText(float alpha, float scale)

@@ -263,10 +263,7 @@ namespace NavesShooter.Asteroids
 
         private float EffectiveActivationRadius(Camera cam)
         {
-            float halfHeight = cam.orthographicSize;
-            float halfViewWidth = halfHeight * cam.aspect;
-            float viewHalfDiagonal = Mathf.Sqrt(halfViewWidth * halfViewWidth + halfHeight * halfHeight);
-            return Mathf.Max(activationRadius, viewHalfDiagonal + Settings.radiusRange.y + ViewMargin);
+            return Mathf.Max(activationRadius, CameraView.HalfDiagonal(cam) + Settings.radiusRange.y + ViewMargin);
         }
 
         private void OnDrawGizmosSelected()
