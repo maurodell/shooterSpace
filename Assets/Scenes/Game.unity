@@ -607,6 +607,7 @@ MonoBehaviour:
   rotateWithShip: 0
   shipIcon: {fileID: 189350065}
   markerTemplate: {fileID: 1803420162}
+  initialMarkers: 8
   edgeInset: 18
   rings:
   - {fileID: 227952864}
@@ -3759,8 +3760,8 @@ MonoBehaviour:
   deadZone:
     left: 0.15
     right: 0.15
-    top: 0.15
-    bottom: 0.3
+    top: 0.23
+    bottom: 0.32
   hardLimit:
     left: 0.05
     right: 0.05

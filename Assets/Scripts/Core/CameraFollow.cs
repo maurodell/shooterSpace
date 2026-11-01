@@ -23,8 +23,8 @@ namespace NavesShooter.Core
 
         [SerializeField] private Transform target;
         [SerializeField, Tooltip("Dentro de este rectángulo el objetivo se mueve sin que la cámara se mueva. " +
-            "Abajo es más grande para que la nave no quede bajo el joystick y el botón de disparo.")]
-        private Margins deadZone = new Margins { left = 0.15f, right = 0.15f, top = 0.15f, bottom = 0.3f };
+            "Arriba deja la nave debajo de vidas, puntaje y radar; abajo, encima del joystick y el botón de disparo.")]
+        private Margins deadZone = new Margins { left = 0.15f, right = 0.15f, top = 0.23f, bottom = 0.32f };
         [SerializeField, Tooltip("El objetivo nunca queda fuera de este rectángulo: si llega, la cámara corrige al instante.")]
         private Margins hardLimit = new Margins { left = 0.05f, right = 0.05f, top = 0.05f, bottom = 0.05f };
         [SerializeField, Tooltip("Segundos aproximados para que la cámara alcance la posición que deja al objetivo en el borde de la zona.")]
