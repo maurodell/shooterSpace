@@ -1,5 +1,6 @@
 using System;
 using NavesShooter.Enemies;
+using NavesShooter.Pickups;
 using NavesShooter.Weapons;
 using UnityEngine;
 using UnityEngine.Serialization;
@@ -12,7 +13,8 @@ namespace NavesShooter.Asteroids
     // línea y, frenada, como un cuadradito. Un solo ParticleSystem para todas las explosiones: cada una emite con `Emit`
     // sobre el mismo sistema, así no hay instancias que crear ni pool que mantener, y todas se dibujan juntas.
     // También dibuja la explosión de las naves enemigas (EnemyShip.Destroyed, en rojo) y el destello de los proyectiles
-    // que pegan contra algo indestructible (Projectile.Blocked).
+    // que pegan contra algo indestructible (Projectile.Blocked), y las chispas ámbar de un cristal de munición recogido
+    // (AmmoPickup.Collected).
     // El sistema se configura entero por código en Awake; lo que se edite en sus módulos desde el Inspector se pisa.
     [RequireComponent(typeof(ParticleSystem))]
     public class ExplosionEffect : MonoBehaviour
@@ -51,6 +53,14 @@ namespace NavesShooter.Asteroids
         [SerializeField] private Color impactColorA = new Color(1f, 0.9f, 0.15f);
         [SerializeField] private Color impactColorB = Color.white;
 
+        [Header("Cristal de munición recogido")]
+        [SerializeField] private BurstSettings pickup = new BurstSettings
+        {
+            count = 8, spread = 0.1f, speedRange = new Vector2(1f, 2.8f), sizeRange = new Vector2(0.03f, 0.05f), lifetimeRange = new Vector2(0.2f, 0.35f),
+        };
+        [SerializeField] private Color pickupColorA = new Color(1f, 0.72f, 0f);
+        [SerializeField] private Color pickupColorB = new Color(1f, 0.92f, 0.55f);
+
         [Header("Movimiento")]
         [SerializeField, Range(0f, 1f), Tooltip("Fracción de la velocidad del asteroide que heredan las chispas.")]
         private float inheritVelocity = 0.4f;
@@ -88,6 +98,7 @@ namespace NavesShooter.Asteroids
             Asteroid.Destroyed += OnAsteroidDestroyed;
             EnemyShip.Destroyed += OnEnemyDestroyed;
             Projectile.Blocked += OnProjectileBlocked;
+            AmmoPickup.Collected += OnPickupCollected;
         }
 
         private void OnDisable()
@@ -95,6 +106,12 @@ namespace NavesShooter.Asteroids
             Asteroid.Destroyed -= OnAsteroidDestroyed;
             EnemyShip.Destroyed -= OnEnemyDestroyed;
             Projectile.Blocked -= OnProjectileBlocked;
+            AmmoPickup.Collected -= OnPickupCollected;
+        }
+
+        private void OnPickupCollected(PickupCollected collected)
+        {
+            Explode(collected.Position, collected.Velocity, pickup, pickupColorA, pickupColorB);
         }
 
         private void OnAsteroidDestroyed(AsteroidDestroyed destroyed)

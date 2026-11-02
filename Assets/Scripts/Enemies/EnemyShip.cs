@@ -12,12 +12,15 @@ namespace NavesShooter.Enemies
         public readonly Vector2 Position;
         public readonly Vector2 Velocity;
         public readonly int Points;
+        // Lo destruyó el choque con la nave (HitSource.Ram), no un disparo: no suelta cristales.
+        public readonly bool Rammed;
 
-        public EnemyDestroyed(Vector2 position, Vector2 velocity, int points)
+        public EnemyDestroyed(Vector2 position, Vector2 velocity, int points, bool rammed)
         {
             Position = position;
             Velocity = velocity;
             Points = points;
+            Rammed = rammed;
         }
     }
 
@@ -320,7 +323,7 @@ namespace NavesShooter.Enemies
         public void Explode()
         {
             if (!gameObject.activeSelf) return;
-            var info = new EnemyDestroyed(body.position, body.linearVelocity, settings.points);
+            var info = new EnemyDestroyed(body.position, body.linearVelocity, settings.points, HitSource.Ramming);
             Despawn();
             Destroyed?.Invoke(info);
         }

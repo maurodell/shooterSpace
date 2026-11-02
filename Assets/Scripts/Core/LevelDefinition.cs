@@ -96,5 +96,5 @@ namespace NavesShooter.Core
         }
     }
 
-    public enum RandomStream { Direction, LargeComets }
+    public enum RandomStream { Direction, LargeComets, Pickups }
 }

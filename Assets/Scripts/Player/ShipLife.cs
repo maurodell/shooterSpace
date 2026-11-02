@@ -107,7 +107,7 @@ namespace NavesShooter.Player
             Vector2 away = body.position - (Vector2)collision.collider.bounds.center;
             if (away.sqrMagnitude < 0.0001f) away = -(Vector2)transform.up;
 
-            if (collision.collider.TryGetComponent(out IDamageable other)) other.TakeHit();
+            if (collision.collider.TryGetComponent(out IDamageable other)) HitSource.Ram(other);
             if (!health.TakeDamage(1) || health.IsDead) return;
             if (controller != null && config != null) controller.Knockback(away.normalized * config.Ship.knockbackSpeed);
         }

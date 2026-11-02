@@ -52,8 +52,33 @@ namespace NavesShooter.Asteroids
 
         private GameConfig.LargeCometSettings Settings => config.LargeComets;
 
+        // Después de generar el campo (al empezar y al pasar de nivel): lo que se ubique evitando los cometas se arma acá.
+        public event System.Action Generated;
+
         public int Count => comets.Length;
         public int ActiveCount => active.Count;
+
+        // Si un círculo de radio `clearance` en `position` no toca ningún cometa (usa el radio máximo de su contorno).
+        // Vale para todo el campo, no solo para los activos.
+        public bool IsClear(Vector2 position, float clearance)
+        {
+            float reach = clearance + Settings.radiusRange.y;
+            Vector2Int min = Cell(position - Vector2.one * reach);
+            Vector2Int max = Cell(position + Vector2.one * reach);
+            for (int x = min.x; x <= max.x; x++)
+            {
+                for (int y = min.y; y <= max.y; y++)
+                {
+                    if (!cells.TryGetValue(new Vector2Int(x, y), out List<int> cell)) continue;
+                    foreach (int index in cell)
+                    {
+                        float limit = comets[index].Radius + clearance;
+                        if ((comets[index].Position - position).sqrMagnitude < limit * limit) return false;
+                    }
+                }
+            }
+            return true;
+        }
 
         private void Awake()
         {
@@ -249,6 +274,8 @@ namespace NavesShooter.Asteroids
                 if (!cells.TryGetValue(key, out List<int> cell)) cells.Add(key, cell = new List<int>());
                 cell.Add(i);
             }
+
+            Generated?.Invoke();
         }
 
         // (x local, y local, radio libre).

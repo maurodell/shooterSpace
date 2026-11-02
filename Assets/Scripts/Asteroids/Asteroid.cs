@@ -11,11 +11,14 @@ namespace NavesShooter.Asteroids
     {
         public readonly Vector2 Position;
         public readonly Vector2 Velocity;
+        // Lo rompió el choque con la nave (HitSource.Ram), no un disparo: no suelta cristales.
+        public readonly bool Rammed;
 
-        public AsteroidDestroyed(Vector2 position, Vector2 velocity)
+        public AsteroidDestroyed(Vector2 position, Vector2 velocity, bool rammed)
         {
             Position = position;
             Velocity = velocity;
+            Rammed = rammed;
         }
     }
 
@@ -122,7 +125,7 @@ namespace NavesShooter.Asteroids
         {
             if (pendingFirstStep || !gameObject.activeSelf) return;
 
-            var info = new AsteroidDestroyed(body.position, body.linearVelocity);
+            var info = new AsteroidDestroyed(body.position, body.linearVelocity, HitSource.Ramming);
             Despawn();
             Destroyed?.Invoke(info);
         }
